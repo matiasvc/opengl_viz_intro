@@ -1,4 +1,5 @@
 #include <iostream>
+#include <random>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -6,28 +7,18 @@
 #include "util/Resource.h"
 #include "gl/GLShader.h"
 
-constexpr auto vertexShaderSource = R"GLSL(
-#version 330 core
+#include "util/Transform.h"
+#include "gl/GLPointDrawer3D.h"
+#include "gl/GLLineDrawer3D.h"
+#include "gl/GLWorldGridDrawer.h"
+#include "gl/GLOrbitCamera.h"
 
-layout (location = 0) in vec3 aPos;
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 
-void main() {
-	gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
-}
-)GLSL";
 
-constexpr auto fragmentShaderSource = R"GLSL(
-#version 330 core
-
-out vec4 FragColor;
-
-void main() {
-	FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
-}
-)GLSL";
-
-void framebuffer_size_callback(GLFWwindow* window, int width, int height)
-{
+void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
 }
 
@@ -37,10 +28,22 @@ void process_input(GLFWwindow* window) {
 	}
 }
 
-int main()
-{
+void init_imgui(GLFWwindow* window) {
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGui::StyleColorsDark();
 	
-	glfwInit();
+	const char* glsl_version = "#version 450";
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init(glsl_version);
+}
+
+int main() {
+	if (glfwInit() != GLFW_TRUE) {
+		std::cerr << "ERROR! Unable to initialize GLFW.\n";
+		glfwTerminate();
+		return -1;
+	}
 	
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
@@ -53,7 +56,7 @@ int main()
 	);
 	
 	if (window == nullptr) {
-		std::cerr << "ERROR! Unable to create GLFW window\n";
+		std::cerr << "ERROR! Unable to create GLFW window.\n";
 		glfwTerminate();
 		return -1;
 	}
@@ -63,62 +66,102 @@ int main()
 	
 	// Load OpenGL with glad
 	if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress))) {
-		std::cerr << "ERROR! Unable to load OpenGL\n";
+		std::cerr << "ERROR! Unable to load OpenGL.\n";
+		glfwTerminate();
 		return -1;
 	}
 	
-	GLShader triangle_shader(vertexShaderSource, fragmentShaderSource);
+	init_imgui(window);
+	std::default_random_engine generator;
+	std::uniform_real_distribution<float> distribution(0.5f,30.0f);
+	std::vector<GLPointDrawer3D::GLPoint3D> points;
+	for (int i = 0; i < 200; ++i) {
+		points.emplace_back(GLPointDrawer3D::GLPoint3D{Eigen::Vector3f::Random()*3.5f, Eigen::Vector4f::Random().cwiseAbs(), distribution(generator), static_cast<GLPointDrawer3D::PointShape>(i % 4)});
+	}
+	GLPointDrawer3D point_drawer;
+	point_drawer.set_data(points);
 	
-	float vertices[] = {
-			0.5f,  0.5f, 0.0f,  // top right
-			0.5f, -0.5f, 0.0f,  // bottom right
-			-0.5f, -0.5f, 0.0f,  // bottom left
-			-0.5f,  0.5f, 0.0f   // top left
-	};
-	unsigned int indices[] = {  // note that we start from 0!
-			0, 1, 3,  // first Triangle
-			1, 2, 3   // second Triangle
-	};
+	std::vector<GLLineDrawer3D::GLLineVertex3D> line_vertices;
+	const Eigen::Vector4f point_color(1.0f, 0.0f, 0.0f, 1.0f);
+	line_vertices.emplace_back(GLLineDrawer3D::GLLineVertex3D{Eigen::Vector3f::Zero(), point_color});
+	line_vertices.emplace_back(GLLineDrawer3D::GLLineVertex3D{Eigen::Vector3f(1.0f, 0.0f, 0.0f), point_color});
 	
-	unsigned int VBO, VAO, EBO;
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(1, &VBO);
-	glGenBuffers(1, &EBO);
-	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
-	glBindVertexArray(VAO);
+	line_vertices.emplace_back(GLLineDrawer3D::GLLineVertex3D{Eigen::Vector3f::Zero(), point_color});
+	line_vertices.emplace_back(GLLineDrawer3D::GLLineVertex3D{Eigen::Vector3f(0.0f, 1.0f, 0.0f), point_color});
 	
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	line_vertices.emplace_back(GLLineDrawer3D::GLLineVertex3D{Eigen::Vector3f::Zero(), point_color});
+	line_vertices.emplace_back(GLLineDrawer3D::GLLineVertex3D{Eigen::Vector3f(0.0f, 0.0f, 1.0f), point_color});
 	
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+	GLLineDrawer3D line_drawer;
+	line_drawer.set_data(line_vertices, GLLineDrawer3D::DrawMode::Lines, 3.0f);
 	
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(0);
+	GLOrbitCamera camera;
 	
-	// note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	Eigen::Vector3f pos = Eigen::Vector3f::Zero();
 	
-	// remember: do NOT unbind the EBO while a VAO is active as the bound element buffer object IS stored in the VAO; keep the EBO bound.
-	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	
-	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
-	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
-	glBindVertexArray(0);
+	GLWorldGridDrawer world_grid_drawer;
 	
 	while (!glfwWindowShouldClose(window)) {
 		process_input(window);
 		
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
 		
-		// draw our first triangle
-		triangle_shader.use();
-		glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-		//glDrawArrays(GL_TRIANGLES, 0, 6);
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		glfwMakeContextCurrent(window);
+		
+		
+		
+		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		
+		int fb_width, fb_height;
+		glfwGetFramebufferSize(window, &fb_width, &fb_height);
+		
+		Eigen::Matrix4f camera_projection = camera.get_camera_projection(fb_width, fb_height, 0.01f, 100.0f, 1500.0f);
+		Transform camera_transform = camera.get_camera_transform();
+		
+		point_drawer.draw(camera_projection, camera_transform);
+		//line_drawer.draw(camera_projection, camera_transform, Transform(pos));
+		world_grid_drawer.draw(camera_projection, camera_transform);
+		
+		ImGuiIO& io = ImGui::GetIO();
+		// Right mouse-button drag
+		if (ImGui::IsMouseDragging(0) && !ImGui::IsAnyWindowHovered())
+		{
+			ImVec2 vec = io.MouseDelta;
+			const float rotateSpeed = 0.003f;
+			camera.rotate(-vec.y*rotateSpeed, vec.x*rotateSpeed);
+		}
+		
+		// Left mouse-button drag
+		if (ImGui::IsMouseDragging(1) && !ImGui::IsAnyWindowHovered())
+		{
+			ImVec2 vec = io.MouseDelta;
+			const float moveSpeed = 0.002f;
+			camera.move(Eigen::Vector3f(vec.x*moveSpeed, 0.0f, vec.y*moveSpeed));
+		}
+		
+		// Mouse wheel
+		if (!ImGui::IsAnyWindowHovered())
+		{
+			const float scroll = io.MouseWheel;
+			const float zoomSpeed = 0.5f;
+			
+			if (scroll != 0.0f)
+			{
+				camera.change_distance(-scroll*zoomSpeed);
+			}
+		}
+		
+		if (ImGui::Begin("Camera")) {
+			ImGui::DragFloat3("Pos", pos.data(), 0.01f, -1.0f, 1.0f);
+		} ImGui::End();
+		
+		
+		
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		
 		glfwSwapBuffers(window);
 		glfwPollEvents();

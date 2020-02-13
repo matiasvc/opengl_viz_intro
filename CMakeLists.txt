@@ -21,6 +21,10 @@ add_library(stb ${STB_SOURCE_FILES})
 include_directories(libs/glad/include)
 add_library(glad STATIC libs/glad/src/glad.c)
 
+# imgui: GUI Library
+include_directories(libs/imgui)
+file(GLOB_RECURSE IMGUI_SOURCE_FILES libs/imgui/*.cpp)
+add_library(imgui ${IMGUI_SOURCE_FILES})
 
 # C++ code
 include_directories(include)
@@ -30,6 +34,7 @@ set(CXX_LIBRARIES
     Eigen3::Eigen
     stb
     glad
+    imgui
     ${GLFW_STATIC_LIBRARIES})
 
 add_executable(opengl_viz ${CXX_SOURCE_FILES})
