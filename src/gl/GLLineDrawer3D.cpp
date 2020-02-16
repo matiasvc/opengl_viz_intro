@@ -13,11 +13,13 @@ layout (location = 1) in vec4 color;
 
 out vec4 line_color;
 
-uniform mat4 PM; // Projection & model-view matrix multiplied to a single matrix
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
 
 void main(){
 	line_color = color;
-	gl_Position = PM * vec4(position, 1.0);
+	gl_Position = projection * view * model * vec4(position, 1.0);
 }
 )GLSL";
 
@@ -37,7 +39,7 @@ GLLineDrawer3D::GLLineDrawer3D()
 : m_shader{line_3d_vs, line_3d_fs}
 { }
 
-void GLLineDrawer3D::set_data(const std::vector<GLLineVertex3D>& lines, DrawMode draw_mode, float line_width)
+void GLLineDrawer3D::set_data(const std::vector<LineVertex>& lines, DrawMode draw_mode, float line_width)
 {
 	m_vao = make_resource<uint32_t>(
 			[](auto& r){ glGenVertexArrays(1, &r); glCheckError(); },
@@ -50,17 +52,17 @@ void GLLineDrawer3D::set_data(const std::vector<GLLineVertex3D>& lines, DrawMode
 	
 	glBindVertexArray(m_vao);
 	glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(GLLineVertex3D)*lines.size(), lines.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(LineVertex) * lines.size(), lines.data(), GL_STATIC_DRAW);
 	m_number_of_line_vertices = lines.size();
 	
 	// From Position
 	constexpr auto position_location = 0;
-	glVertexAttribPointer(position_location, 3, GL_FLOAT, GL_FALSE, sizeof(GLLineVertex3D), reinterpret_cast<void*>(offset_of(&GLLineVertex3D::position)));
+	glVertexAttribPointer(position_location, 3, GL_FLOAT, GL_FALSE, sizeof(LineVertex), reinterpret_cast<void*>(offset_of(&LineVertex::position)));
 	glEnableVertexAttribArray(position_location);
 	
 	// Color
 	constexpr auto color_location = 1;
-	glVertexAttribPointer(color_location, 4, GL_FLOAT, GL_FALSE, sizeof(GLLineVertex3D), reinterpret_cast<void*>(offset_of(&GLLineVertex3D::color)));
+	glVertexAttribPointer(color_location, 4, GL_FLOAT, GL_FALSE, sizeof(LineVertex), reinterpret_cast<void*>(offset_of(&LineVertex::color)));
 	glEnableVertexAttribArray(color_location);
 	
 	glBindVertexArray(0);
@@ -74,8 +76,11 @@ void GLLineDrawer3D::draw(const Eigen::Matrix4f& camera_projection, const Transf
 	
 	// Prepare shader
 	m_shader.use();
-	const Eigen::Matrix4f PM = camera_projection * world_to_camera.get_matrix() * world_to_object.get_inverse().get_matrix();
-	m_shader.set_uniform("PM", PM);
+	const Eigen::Matrix4f model = world_to_object.get_inverse().get_matrix();
+	m_shader.set_uniform("model", model);
+	const Eigen::Matrix4f view = world_to_camera.get_matrix();
+	m_shader.set_uniform("view", view);
+	m_shader.set_uniform("projection", camera_projection);
 	
 	// Draw
 	glBindVertexArray(m_vao);

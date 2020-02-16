@@ -1,6 +1,5 @@
 
 #include "gl/GLShader.h"
-#include <exception>
 #include <sstream>
 
 GLShader::GLShader(const std::string& vertex_source, const std::string& fragment_source){

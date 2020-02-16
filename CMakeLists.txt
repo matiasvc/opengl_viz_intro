@@ -35,6 +35,7 @@ set(CXX_LIBRARIES
     stb
     glad
     imgui
+    GL
     ${GLFW_STATIC_LIBRARIES})
 
 add_executable(opengl_viz ${CXX_SOURCE_FILES})

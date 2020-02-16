@@ -16,13 +16,15 @@ layout (location = 3) in int shape;
 out vec4 point_color;
 out int point_shape;
 
-uniform mat4 PM; // Projection & model-view matrix multiplied to a single matrix
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
 
 void main(){
 	point_color = color;
 	point_shape = shape;
 	gl_PointSize = size;
-	gl_Position = PM * vec4(position, 1.0);
+	gl_Position = projection * view * model * vec4(position, 1.0);
 }
 )GLSL";
 
@@ -71,7 +73,7 @@ GLPointDrawer3D::GLPointDrawer3D()
 : m_shader{point_3d_vs, point_3d_fs}
 { }
 
-void GLPointDrawer3D::set_data(const std::vector<GLPoint3D>& points)
+void GLPointDrawer3D::set_data(const std::vector<Point3D>& points)
 {
 	m_vao = make_resource<uint32_t>(
 		[](auto& r){ glGenVertexArrays(1, &r); glCheckError(); },
@@ -84,27 +86,27 @@ void GLPointDrawer3D::set_data(const std::vector<GLPoint3D>& points)
 	
 	glBindVertexArray(m_vao);
 	glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(GLPoint3D)*points.size(), points.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(Point3D) * points.size(), points.data(), GL_STATIC_DRAW);
 	m_number_of_points = points.size();
 	
 	// Position
 	constexpr auto position_location = 0;
-	glVertexAttribPointer(position_location, 3, GL_FLOAT, GL_FALSE, sizeof(GLPoint3D), reinterpret_cast<void*>(offset_of(&GLPoint3D::position)));
+	glVertexAttribPointer(position_location, 3, GL_FLOAT, GL_FALSE, sizeof(Point3D), reinterpret_cast<void*>(offset_of(&Point3D::position)));
 	glEnableVertexAttribArray(position_location);
 	
 	// Color
 	constexpr auto color_location = 1;
-	glVertexAttribPointer(color_location, 4, GL_FLOAT, GL_FALSE, sizeof(GLPoint3D), reinterpret_cast<void*>(offset_of(&GLPoint3D::color)));
+	glVertexAttribPointer(color_location, 4, GL_FLOAT, GL_FALSE, sizeof(Point3D), reinterpret_cast<void*>(offset_of(&Point3D::color)));
 	glEnableVertexAttribArray(color_location);
 	
 	// Size
 	constexpr auto size_location = 2;
-	glVertexAttribPointer(size_location, 1, GL_FLOAT, GL_FALSE, sizeof(GLPoint3D), reinterpret_cast<void*>(offset_of(&GLPoint3D::size)));
+	glVertexAttribPointer(size_location, 1, GL_FLOAT, GL_FALSE, sizeof(Point3D), reinterpret_cast<void*>(offset_of(&Point3D::size)));
 	glEnableVertexAttribArray(size_location);
 	
 	// Shape
 	constexpr auto shape_location = 3;
-	glVertexAttribIPointer(shape_location, 1, GL_INT, sizeof(GLPoint3D), reinterpret_cast<void*>(offset_of(&GLPoint3D::shape)));
+	glVertexAttribIPointer(shape_location, 1, GL_INT, sizeof(Point3D), reinterpret_cast<void*>(offset_of(&Point3D::shape)));
 	glEnableVertexAttribArray(shape_location);
 	
 	glBindVertexArray(0);
@@ -115,8 +117,11 @@ void GLPointDrawer3D::draw(const Eigen::Matrix4f& camera_projection, const Trans
 	
 	// Prepare shader
 	m_shader.use();
-	const Eigen::Matrix4f PM = camera_projection * world_to_camera.get_matrix() * world_to_object.get_inverse().get_matrix();
-	m_shader.set_uniform("PM", PM);
+	const Eigen::Matrix4f model = world_to_object.get_inverse().get_matrix();
+	m_shader.set_uniform("model", model);
+	const Eigen::Matrix4f view = world_to_camera.get_matrix();
+	m_shader.set_uniform("view", view);
+	m_shader.set_uniform("projection", camera_projection);
 	
 	// Draw
 	glBindVertexArray(m_vao);

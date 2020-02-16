@@ -14,13 +14,13 @@ class GLLineDrawer3D
 public:
 	GLLineDrawer3D();
 	
-	struct GLLineVertex3D {
+	struct LineVertex {
 		Eigen::Vector3f position;
 		Eigen::Vector4f color;
 		EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 	};
 	enum class DrawMode {Lines, LineStrip, LineLoop};
-	void set_data(const std::vector<GLLineVertex3D>& lines, DrawMode draw_mode = DrawMode::LineStrip, float line_width = 1.0f);
+	void set_data(const std::vector<LineVertex>& lines, DrawMode draw_mode = DrawMode::LineStrip, float line_width = 1.0f);
 	
 	void draw(const Eigen::Matrix4f& camera_projection, const Transform& world_to_camera = Transform::Identity(), const Transform& world_to_object = Transform::Identity()) const;
 	
