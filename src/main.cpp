@@ -104,12 +104,20 @@ int main() {
 	
 	GLPrimitiveDrawer3D primitive_drawer;
 	
-	primitive_drawer.set_data(GLPrimitiveDrawer3D::Primitive3D{
+	primitive_drawer.set_data({GLPrimitiveDrawer3D::Primitive3D{
 		Eigen::Vector3f::Zero(),
 		Eigen::Quaternionf::Identity(),
+		Eigen::Vector3f(1.0f, 1.0f, 1.0f),
+		Eigen::Vector4f(0.25f, 0.95f, 0.8f, 1.0f),
+		GLPrimitiveDrawer3D::PrimitiveShape::Cylinder
+	},
+	GLPrimitiveDrawer3D::Primitive3D{
+		1.5f*Eigen::Vector3f::UnitX(),
+		Eigen::Quaternionf::Identity(),
 		Eigen::Vector3f::Ones(),
-		Eigen::Vector4f(0.25f, 0.25f, 0.8f, 0.8f),
-		GLPrimitiveDrawer3D::PrimitiveShape::Cube
+		Eigen::Vector4f(0.25f, 0.95f, 0.8f, 1.0f),
+		GLPrimitiveDrawer3D::PrimitiveShape::Sphere
+	}
 	});
 	
 	Eigen::Vector3f cube_pos = Eigen::Vector3f::Zero();
