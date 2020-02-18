@@ -80,7 +80,7 @@ void GLPrimitiveDrawer3D::draw(const Eigen::Matrix4f &camera_projection, const T
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glEnable(GL_CULL_FACE);
+	glDisable(GL_CULL_FACE);
 	glDrawArrays(GL_TRIANGLES, 0, m_number_of_vertices);
 }
 
@@ -190,21 +190,21 @@ void GLPrimitiveDrawer3D::create_primitive_data(const Primitive3D& primitive, st
 			
 		} break;
 		case PrimitiveShape::Sphere: {
-			constexpr int sphere_sectors = 8;
-			constexpr int sphere_stacks = 8;
+			constexpr int sphere_sectors = 32;
+			constexpr int sphere_stacks = 32;
 			
 			const Eigen::Vector3f top_center(0.0f, -0.5f, 0.0f);
-			const Eigen::Vector3f top_center_norma(0.0f, -1.0f, 0.0f);
+			const Eigen::Vector3f top_center_normal(0.0f, -1.0f, 0.0f);
 			const Eigen::Vector3f bottom_center(0.0f, 0.5f, 0.0f);
 			const Eigen::Vector3f bottom_center_normal(0.0f, 1.0f, 0.0f);
 			
 			for (int sphere_sector = 0; sphere_sector < sphere_sectors; ++sphere_sector) {
-				const float sector_angle1 = 2.0f * M_PI * static_cast<float>(sphere_sector)/static_cast<float>(sphere_sectors);
-				const float sector_angle2 = 2.0f * M_PI * static_cast<float>(sphere_sector + 1)/static_cast<float>(sphere_sectors);
+				const float sector_angle1 = 2.0f * M_PI * static_cast<float>(sphere_sector + 1)/static_cast<float>(sphere_sectors);
+				const float sector_angle2 = 2.0f * M_PI * static_cast<float>(sphere_sector)/static_cast<float>(sphere_sectors);
 				
 				for (int sphere_stack = 0; sphere_stack < sphere_stacks; ++sphere_stack) {
-					const float stack_angle1 = M_PI_2 - M_PI * static_cast<float>(sphere_stack)/static_cast<float>(sphere_stacks);
-					const float stack_angle2 = M_PI_2 - M_PI * static_cast<float>(sphere_stack + 1)/static_cast<float>(sphere_stacks);
+					const float stack_angle1 = M_PI_2 - M_PI * static_cast<float>(sphere_stack + 1)/static_cast<float>(sphere_stacks);
+					const float stack_angle2 = M_PI_2 - M_PI * static_cast<float>(sphere_stack)/static_cast<float>(sphere_stacks);
 					
 					const Eigen::Vector3f bottom_left(
 							0.5f * cosf(stack_angle1) * cosf(sector_angle1),
@@ -235,13 +235,13 @@ void GLPrimitiveDrawer3D::create_primitive_data(const Primitive3D& primitive, st
 					const Eigen::Vector3f top_right_normal = top_right.normalized();
 					
 					if (sphere_stack == 0) {
-						primitive_vertices.emplace_back(PrimitiveVertex{scaled_orientation * top_center + position, normal_orientation * bottom_center_normal, primitive.color});
+						primitive_vertices.emplace_back(PrimitiveVertex{scaled_orientation * bottom_center + position, normal_orientation * bottom_center_normal, primitive.color});
 						primitive_vertices.emplace_back(PrimitiveVertex{scaled_orientation * bottom_left + position, normal_orientation * bottom_left_normal, primitive.color});
 						primitive_vertices.emplace_back(PrimitiveVertex{scaled_orientation * bottom_right + position, normal_orientation * bottom_right_normal, primitive.color});
 					} else if (sphere_stack == sphere_stacks - 1) {
-						primitive_vertices.emplace_back(PrimitiveVertex{scaled_orientation * top_center + position, normal_orientation * bottom_center_normal, primitive.color});
-						primitive_vertices.emplace_back(PrimitiveVertex{scaled_orientation * top_left + position, normal_orientation * bottom_left_normal, primitive.color});
-						primitive_vertices.emplace_back(PrimitiveVertex{scaled_orientation * top_right + position, normal_orientation * bottom_right_normal, primitive.color});
+						primitive_vertices.emplace_back(PrimitiveVertex{scaled_orientation * top_center + position, normal_orientation * top_center_normal, primitive.color});
+						primitive_vertices.emplace_back(PrimitiveVertex{scaled_orientation * top_left + position, normal_orientation * top_left_normal, primitive.color});
+						primitive_vertices.emplace_back(PrimitiveVertex{scaled_orientation * top_right + position, normal_orientation * top_right_normal, primitive.color});
 					} else {
 						primitive_vertices.emplace_back(PrimitiveVertex{scaled_orientation * top_left + position, normal_orientation * top_left_normal, primitive.color});
 						primitive_vertices.emplace_back(PrimitiveVertex{scaled_orientation * bottom_left + position, normal_orientation * bottom_left_normal, primitive.color});
@@ -253,7 +253,6 @@ void GLPrimitiveDrawer3D::create_primitive_data(const Primitive3D& primitive, st
 					}
 				}
 			}
-			
 		} break;
 		case PrimitiveShape::Cylinder: {
 			constexpr int cylinder_segments = 32;
@@ -297,7 +296,6 @@ void GLPrimitiveDrawer3D::create_primitive_data(const Primitive3D& primitive, st
 				};
 				primitive_vertices.insert(std::end(primitive_vertices), std::begin(current_primitive_vertices), std::end(current_primitive_vertices));
 			}
-			
 		} break;
 	}
 }

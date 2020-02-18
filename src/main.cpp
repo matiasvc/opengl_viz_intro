@@ -74,7 +74,7 @@ int main() {
 	
 	init_imgui(window);
 	std::default_random_engine generator;
-	std::uniform_real_distribution<float> distribution(0.5f,30.0f);
+	std::uniform_real_distribution<float> distribution(5.0f,20.0f);
 	std::vector<GLPointDrawer3D::Point3D> points;
 	for (int i = 0; i < 200; ++i) {
 		points.emplace_back(GLPointDrawer3D::Point3D{Eigen::Vector3f::Random() * 3.5f, Eigen::Vector4f::Random().cwiseAbs(), distribution(generator), static_cast<GLPointDrawer3D::PointShape>(i % 4)});
@@ -104,21 +104,15 @@ int main() {
 	
 	GLPrimitiveDrawer3D primitive_drawer;
 	
-	primitive_drawer.set_data({GLPrimitiveDrawer3D::Primitive3D{
-		Eigen::Vector3f::Zero(),
-		Eigen::Quaternionf::Identity(),
-		Eigen::Vector3f(1.0f, 1.0f, 1.0f),
-		Eigen::Vector4f(0.25f, 0.95f, 0.8f, 1.0f),
-		GLPrimitiveDrawer3D::PrimitiveShape::Cylinder
-	},
+	primitive_drawer.set_data(
 	GLPrimitiveDrawer3D::Primitive3D{
-		1.5f*Eigen::Vector3f::UnitX(),
+		Eigen::Vector3f::Zero(),
 		Eigen::Quaternionf::Identity(),
 		Eigen::Vector3f::Ones(),
 		Eigen::Vector4f(0.25f, 0.95f, 0.8f, 1.0f),
 		GLPrimitiveDrawer3D::PrimitiveShape::Sphere
 	}
-	});
+	);
 	
 	Eigen::Vector3f cube_pos = Eigen::Vector3f::Zero();
 	Eigen::Vector3f cube_euler = Eigen::Vector3f::Zero();

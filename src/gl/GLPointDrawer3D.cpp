@@ -23,8 +23,11 @@ uniform mat4 projection;
 void main(){
 	point_color = color;
 	point_shape = shape;
-	gl_PointSize = size;
-	gl_Position = projection * view * model * vec4(position, 1.0);
+	
+	vec4 point_position_cam_space = view * model * vec4(position, 1.0);
+
+	gl_PointSize = 10.0 * size / distance(vec3(0.0, 0.0, 0.0), point_position_cam_space.xyz);
+	gl_Position = projection * point_position_cam_space;
 }
 )GLSL";
 
