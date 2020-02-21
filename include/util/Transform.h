@@ -7,8 +7,8 @@
 class Transform {
 public:
 	Transform();
-	Transform(const Eigen::Vector3f& translation);
-	Transform(Eigen::Vector3f&& translation);
+	explicit Transform(const Eigen::Vector3f& translation);
+	explicit Transform(Eigen::Vector3f&& translation);
 	Transform(const Eigen::Vector3f& translation, const Eigen::Quaternionf& orientation);
 	Transform(Eigen::Vector3f&& translation, Eigen::Quaternionf&& orientation);
 	
@@ -17,9 +17,8 @@ public:
 	[[nodiscard]] const Eigen::Vector3f& get_translation() const;
 	[[nodiscard]] const Eigen::Quaternionf& get_orientation() const;
 	
-	Transform get_inverse() const;
-	
-	Eigen::Matrix4f get_matrix() const;
+	[[nodiscard]] Transform get_inverse() const;
+	[[nodiscard]] Eigen::Matrix4f get_matrix() const;
 	
 private:
 	const Eigen::Vector3f m_translation;

@@ -1,4 +1,4 @@
-#include "gl/GLPrimitiveDrawer3D.h"
+#include "gl/PrimitiveDrawer3D.h"
 
 #include <glad/glad.h>
 
@@ -41,12 +41,12 @@ void main() {
 
 )GLSL";
 
-GLPrimitiveDrawer3D::GLPrimitiveDrawer3D()
+Toucan::PrimitiveDrawer3D::PrimitiveDrawer3D()
 : m_shader{primitive_3d_vs, primitive_3d_fs}
 { }
 
 
-void GLPrimitiveDrawer3D::set_data(const Primitive3D& primitive) {
+void Toucan::PrimitiveDrawer3D::set_data(const Primitive3D& primitive) {
 	std::vector<PrimitiveVertex> primitive_vertices;
 	
 	create_primitive_data(primitive, primitive_vertices);
@@ -54,7 +54,7 @@ void GLPrimitiveDrawer3D::set_data(const Primitive3D& primitive) {
 	set_primitive_data(primitive_vertices);
 }
 
-void GLPrimitiveDrawer3D::set_data(const std::vector<Primitive3D>& primitives) {
+void Toucan::PrimitiveDrawer3D::set_data(const std::vector<Primitive3D>& primitives) {
 	std::vector<PrimitiveVertex> primitive_vertices;
 	
 	for (const auto& primitive : primitives) {
@@ -64,7 +64,7 @@ void GLPrimitiveDrawer3D::set_data(const std::vector<Primitive3D>& primitives) {
 	set_primitive_data(primitive_vertices);
 }
 
-void GLPrimitiveDrawer3D::draw(const Eigen::Matrix4f &camera_projection, const Transform &world_to_camera, const Transform &world_to_object) const {
+void Toucan::PrimitiveDrawer3D::draw(const Eigen::Matrix4f &camera_projection, const Transform &world_to_camera, const Transform &world_to_object) const {
 	if(m_number_of_vertices == 0) { return; }
 	
 	// Prepare shader
@@ -84,7 +84,7 @@ void GLPrimitiveDrawer3D::draw(const Eigen::Matrix4f &camera_projection, const T
 	glDrawArrays(GL_TRIANGLES, 0, m_number_of_vertices);
 }
 
-void GLPrimitiveDrawer3D::set_primitive_data(const std::vector<PrimitiveVertex>& primitive_vertices)
+void Toucan::PrimitiveDrawer3D::set_primitive_data(const std::vector<PrimitiveVertex>& primitive_vertices)
 {
 	m_vao = make_resource<uint32_t>(
 			[](auto& r){ glGenVertexArrays(1, &r); glCheckError(); },
@@ -119,7 +119,7 @@ void GLPrimitiveDrawer3D::set_primitive_data(const std::vector<PrimitiveVertex>&
 	glBindVertexArray(0);
 }
 
-void GLPrimitiveDrawer3D::create_primitive_data(const Primitive3D& primitive, std::vector<PrimitiveVertex>& primitive_vertices)
+void Toucan::PrimitiveDrawer3D::create_primitive_data(const Primitive3D& primitive, std::vector<PrimitiveVertex>& primitive_vertices)
 {
 	const Eigen::Vector3f& position = primitive.position;
 	const Eigen::Matrix3f orientation = primitive.orientation.toRotationMatrix();

@@ -12,7 +12,7 @@ pkg_search_module(GLFW REQUIRED glfw3)
 include_directories(${GLFW_INCLUDE_DIRS})
 
 # stb: For loading images
-include_directories(libs/stb)
+include_directories(libs/stb/include)
 set(STB_SOURCE_FILES
     libs/stb/src/stb_image.cpp)
 add_library(stb ${STB_SOURCE_FILES})
@@ -36,6 +36,7 @@ set(CXX_LIBRARIES
     glad
     imgui
     GL
+    stdc++fs
     ${GLFW_STATIC_LIBRARIES})
 
 add_executable(opengl_viz ${CXX_SOURCE_FILES})

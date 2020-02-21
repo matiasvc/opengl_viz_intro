@@ -5,7 +5,9 @@
 
 #include "util/Transform.h"
 
-class GLOrbitCamera {
+namespace Toucan {
+
+class OrbitCamera {
 public:
 
 	void rotate(float pitch_delta, float yaw_delta);
@@ -24,3 +26,4 @@ private:
 	
 };
 
+} // namespace Toucan

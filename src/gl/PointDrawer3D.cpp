@@ -1,9 +1,10 @@
-#include "gl/GLPointDrawer3D.h"
+#include "gl/PointDrawer3D.h"
 
 #include <glad/glad.h>
 
 #include "gl/GLDebug.h"
 #include "gl/GLUtils.h"
+#include "util/Resource.h"
 
 constexpr auto point_3d_vs = R"GLSL(
 #version 450 core
@@ -72,11 +73,11 @@ void main(){
 )GLSL";
 
 
-GLPointDrawer3D::GLPointDrawer3D()
+Toucan::PointDrawer3D::PointDrawer3D()
 : m_shader{point_3d_vs, point_3d_fs}
 { }
 
-void GLPointDrawer3D::set_data(const std::vector<Point3D>& points)
+void Toucan::PointDrawer3D::set_data(const std::vector<Point3D>& points)
 {
 	m_vao = make_resource<uint32_t>(
 		[](auto& r){ glGenVertexArrays(1, &r); glCheckError(); },
@@ -87,35 +88,35 @@ void GLPointDrawer3D::set_data(const std::vector<Point3D>& points)
 		[](auto r){ glDeleteBuffers(1, &r); glCheckError(); }
 	);
 	
-	glBindVertexArray(m_vao);
-	glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(Point3D) * points.size(), points.data(), GL_STATIC_DRAW);
+	glBindVertexArray(m_vao); glCheckError();
+	glBindBuffer(GL_ARRAY_BUFFER, m_vbo); glCheckError();
+	glBufferData(GL_ARRAY_BUFFER, sizeof(Point3D) * points.size(), points.data(), GL_STATIC_DRAW); glCheckError();
 	m_number_of_points = points.size();
 	
 	// Position
 	constexpr auto position_location = 0;
-	glVertexAttribPointer(position_location, 3, GL_FLOAT, GL_FALSE, sizeof(Point3D), reinterpret_cast<void*>(offset_of(&Point3D::position)));
-	glEnableVertexAttribArray(position_location);
+	glVertexAttribPointer(position_location, 3, GL_FLOAT, GL_FALSE, sizeof(Point3D), reinterpret_cast<void*>(offset_of(&Point3D::position))); glCheckError();
+	glEnableVertexAttribArray(position_location); glCheckError();
 	
 	// Color
 	constexpr auto color_location = 1;
-	glVertexAttribPointer(color_location, 4, GL_FLOAT, GL_FALSE, sizeof(Point3D), reinterpret_cast<void*>(offset_of(&Point3D::color)));
-	glEnableVertexAttribArray(color_location);
+	glVertexAttribPointer(color_location, 4, GL_FLOAT, GL_FALSE, sizeof(Point3D), reinterpret_cast<void*>(offset_of(&Point3D::color))); glCheckError();
+	glEnableVertexAttribArray(color_location); glCheckError();
 	
 	// Size
 	constexpr auto size_location = 2;
-	glVertexAttribPointer(size_location, 1, GL_FLOAT, GL_FALSE, sizeof(Point3D), reinterpret_cast<void*>(offset_of(&Point3D::size)));
-	glEnableVertexAttribArray(size_location);
+	glVertexAttribPointer(size_location, 1, GL_FLOAT, GL_FALSE, sizeof(Point3D), reinterpret_cast<void*>(offset_of(&Point3D::size))); glCheckError();
+	glEnableVertexAttribArray(size_location); glCheckError();
 	
 	// Shape
 	constexpr auto shape_location = 3;
-	glVertexAttribIPointer(shape_location, 1, GL_INT, sizeof(Point3D), reinterpret_cast<void*>(offset_of(&Point3D::shape)));
-	glEnableVertexAttribArray(shape_location);
+	glVertexAttribIPointer(shape_location, 1, GL_INT, sizeof(Point3D), reinterpret_cast<void*>(offset_of(&Point3D::shape))); glCheckError();
+	glEnableVertexAttribArray(shape_location); glCheckError();
 	
-	glBindVertexArray(0);
+	glBindVertexArray(0); glCheckError();
 }
 
-void GLPointDrawer3D::draw(const Eigen::Matrix4f& camera_projection, const Transform& world_to_camera, const Transform& world_to_object) const {
+void Toucan::PointDrawer3D::draw(const Eigen::Matrix4f& camera_projection, const Transform& world_to_camera, const Transform& world_to_object) const {
 	if(m_number_of_points == 0) { return; }
 	
 	// Prepare shader
@@ -127,11 +128,11 @@ void GLPointDrawer3D::draw(const Eigen::Matrix4f& camera_projection, const Trans
 	m_shader.set_uniform("projection", camera_projection);
 	
 	// Draw
-	glBindVertexArray(m_vao);
-	glEnable(GL_PROGRAM_POINT_SIZE);
-	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBindVertexArray(m_vao); glCheckError();
+	glEnable(GL_PROGRAM_POINT_SIZE); glCheckError();
+	glEnable(GL_DEPTH_TEST); glCheckError();
+	glEnable(GL_BLEND); glCheckError();
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); glCheckError();
 	glDrawArrays(GL_POINTS, 0, m_number_of_points); glCheckError();
-	glBindVertexArray(0);
+	glBindVertexArray(0); glCheckError();
 }

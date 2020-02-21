@@ -5,6 +5,8 @@
 #include <type_traits>
 
 
+namespace Toucan {
+
 template<typename T>
 class Resource
 {
@@ -71,5 +73,7 @@ auto make_resource(std::function<void(T&)> creator, L&& releaser)
 	creator(handle);
 	return Resource<T>(std::move(handle), std::forward<L>(releaser));
 }
+
+} // namespace Toucan
 
 

@@ -10,11 +10,17 @@
 #include <iostream>
 #include <glad/glad.h>
 
-inline GLenum glCheckError_(const char *file, int line)
+inline void glCheckError_(const char *file, int line)
 {
+	std::ostringstream ss;
+	ss << "OpenGL Error: \n";
 	GLenum errorCode;
+	
+	bool error = false;
+	
 	while ((errorCode = glGetError()) != GL_NO_ERROR)
 	{
+		error = true;
 		std::string error;
 		switch (errorCode)
 		{
@@ -27,9 +33,12 @@ inline GLenum glCheckError_(const char *file, int line)
 			case GL_INVALID_FRAMEBUFFER_OPERATION: error = "INVALID_FRAMEBUFFER_OPERATION"; break;
 			default:                               error = "UNKNOWN_ERROR"; break;
 		}
-		std::cout << error << " | " << file << " (" << line << ")" << std::endl;
+		ss << "\t- " << error << " | " << file << " (line: " << line << ")\n";
 	}
-	return errorCode;
+	if (error) {
+		
+		throw std::runtime_error(ss.str());
+	}
 }
 #define glCheckError() glCheckError_(__FILE__, __LINE__)
 

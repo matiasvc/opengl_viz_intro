@@ -1,4 +1,4 @@
-#include "gl/GLLineDrawer3D.h"
+#include "gl/LineDrawer3D.h"
 
 #include <glad/glad.h>
 
@@ -17,7 +17,7 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
-void main(){
+void main() {
 	line_color = color;
 	gl_Position = projection * view * model * vec4(position, 1.0);
 }
@@ -30,16 +30,16 @@ in vec4 line_color;
 
 out vec4 frag_color;
 
-void main(){
+void main() {
 	frag_color = line_color;
 }
 )GLSL";
 
-GLLineDrawer3D::GLLineDrawer3D()
+Toucan::LineDrawer3D::LineDrawer3D()
 : m_shader{line_3d_vs, line_3d_fs}
 { }
 
-void GLLineDrawer3D::set_data(const std::vector<LineVertex>& lines, DrawMode draw_mode, float line_width)
+void Toucan::LineDrawer3D::set_data(const std::vector<LineVertex>& lines, DrawMode draw_mode, float line_width)
 {
 	m_vao = make_resource<uint32_t>(
 			[](auto& r){ glGenVertexArrays(1, &r); glCheckError(); },
@@ -55,7 +55,7 @@ void GLLineDrawer3D::set_data(const std::vector<LineVertex>& lines, DrawMode dra
 	glBufferData(GL_ARRAY_BUFFER, sizeof(LineVertex) * lines.size(), lines.data(), GL_STATIC_DRAW);
 	m_number_of_line_vertices = lines.size();
 	
-	// From Position
+	// Position
 	constexpr auto position_location = 0;
 	glVertexAttribPointer(position_location, 3, GL_FLOAT, GL_FALSE, sizeof(LineVertex), reinterpret_cast<void*>(offset_of(&LineVertex::position)));
 	glEnableVertexAttribArray(position_location);
@@ -71,7 +71,7 @@ void GLLineDrawer3D::set_data(const std::vector<LineVertex>& lines, DrawMode dra
 	m_line_width = line_width;
 }
 
-void GLLineDrawer3D::draw(const Eigen::Matrix4f& camera_projection, const Transform& world_to_camera, const Transform& world_to_object) const {
+void Toucan::LineDrawer3D::draw(const Eigen::Matrix4f& camera_projection, const Transform& world_to_camera, const Transform& world_to_object) const {
 	if (m_number_of_line_vertices == 0) { return; }
 	
 	// Prepare shader
