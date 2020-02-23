@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.15)
-project(opengl_viz_intro LANGUAGES C CXX)
+project(opengl_viz_intro LANGUAGES C CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 17)
+
+# CUDA
+find_package(CUDA REQUIRED)
+message(STATUS "Found CUDA ${CUDA_VERSION} at ${CUDA_TOOLKIT_ROOT_DIR}")
+include_directories("${CUDA_INCLUDE_DIRS}")
 
 # Eigen: For linear algebra
 find_package(Eigen3 REQUIRED NO_MODULE)
@@ -30,6 +35,12 @@ add_library(imgui ${IMGUI_SOURCE_FILES})
 include_directories(include)
 file(GLOB_RECURSE CXX_SOURCE_FILES src/*.cpp)
 
+# CUDA code
+file(GLOB_RECURSE CUDA_SOURCE_FILES src/*.cu)
+add_library(cuda_code ${CUDA_SOURCE_FILES})
+set_target_properties(cuda_code PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
+
 set(CXX_LIBRARIES
     Eigen3::Eigen
     stb
@@ -37,7 +48,9 @@ set(CXX_LIBRARIES
     imgui
     GL
     stdc++fs
-    ${GLFW_STATIC_LIBRARIES})
+    ${GLFW_STATIC_LIBRARIES}
+    ${CUDA_LIBRARIES}
+    cuda_code)
 
 add_executable(opengl_viz ${CXX_SOURCE_FILES})
 target_link_libraries(opengl_viz ${CXX_LIBRARIES})

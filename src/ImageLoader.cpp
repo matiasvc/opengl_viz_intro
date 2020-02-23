@@ -5,6 +5,8 @@
 
 #include <stb/stb_image.h>
 
+#include "device/PitchedCUDABuffer.h"
+
 ImageLoader::ImageLoader(std::experimental::filesystem::path dataset_path)
 : m_dataset_path{std::move(dataset_path)} {
 	const std::experimental::filesystem::path rgb_file_path = m_dataset_path / "rgb.txt";
@@ -40,14 +42,17 @@ void ImageLoader::next() {
 	}
 }
 
-ImageLoader::Image ImageLoader::get_image() const {
+void ImageLoader::get_image(PitchedCUDABuffer& image_buffer) const {
 	const auto rgb_image_path = m_dataset_path / m_rgb_files.at(m_image_index).second;
 	
-	const int requested_number_of_channels = 3;
+	const int requested_number_of_channels = 4;
 	int received_number_of_channels = 0;
 	
-	Image image{};
-	image.buffer_ptr = stbi_load(rgb_image_path.c_str(), &image.width, &image.height, &received_number_of_channels, requested_number_of_channels);
+	int image_width = 0;
+	int image_height = 0;
 	
-	return image;
+	void* host_buffer_ptr = stbi_load(rgb_image_path.c_str(), &image_width, &image_height, &received_number_of_channels, requested_number_of_channels);
+	
+	image_buffer.upload(host_buffer_ptr, requested_number_of_channels*sizeof(uint8_t), image_width, image_height);
+	std::free(host_buffer_ptr);
 }

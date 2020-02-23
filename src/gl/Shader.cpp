@@ -11,19 +11,19 @@ Toucan::Shader::Shader(const std::string& vertex_source, const std::string& frag
 	auto vertex_shader = compile(vertex_source, GL_VERTEX_SHADER);
 	auto fragment_shader = compile(fragment_source, GL_FRAGMENT_SHADER);
 	
-	program = make_resource<uint32_t>(
+	m_program = make_resource<uint32_t>(
 			[](auto& r) { r = glCreateProgram(); glCheckError(); },
 			[](auto v) { glDeleteProgram(v); glCheckError(); }
 	);
-	glAttachShader(program, vertex_shader); glCheckError();
-	glAttachShader(program, fragment_shader); glCheckError();
-	glLinkProgram(program); glCheckError();
+	glAttachShader(m_program, vertex_shader); glCheckError();
+	glAttachShader(m_program, fragment_shader); glCheckError();
+	glLinkProgram(m_program); glCheckError();
 	
 	int success = 0;
-	glGetProgramiv(program, GL_LINK_STATUS, &success); glCheckError();
+	glGetProgramiv(m_program, GL_LINK_STATUS, &success); glCheckError();
 	if(!success){
 		char info_log[512];
-		glGetProgramInfoLog(program, 512, nullptr, info_log); glCheckError();
+		glGetProgramInfoLog(m_program, 512, nullptr, info_log); glCheckError();
 		std::stringstream ss;
 		ss << "Shader program linking failed: " << info_log;
 		throw std::runtime_error(ss.str());
@@ -36,20 +36,20 @@ Toucan::Shader::Shader(const std::string& vertex_source, const std::string& geom
 	auto geometry_shader = compile(geometry_source, GL_GEOMETRY_SHADER);
 	auto fragment_shader = compile(fragment_source, GL_FRAGMENT_SHADER);
 	
-	program = make_resource<uint32_t>(
+	m_program = make_resource<uint32_t>(
 			[](auto& r) { r = glCreateProgram(); glCheckError(); },
 			[](auto v){ glDeleteProgram(v); glCheckError(); }
 	);
-	glAttachShader(program, vertex_shader); glCheckError();
-	glAttachShader(program, geometry_shader); glCheckError();
-	glAttachShader(program, fragment_shader); glCheckError();
-	glLinkProgram(program); glCheckError();
+	glAttachShader(m_program, vertex_shader); glCheckError();
+	glAttachShader(m_program, geometry_shader); glCheckError();
+	glAttachShader(m_program, fragment_shader); glCheckError();
+	glLinkProgram(m_program); glCheckError();
 	
 	int success = 0;
-	glGetProgramiv(program, GL_LINK_STATUS, &success); glCheckError();
+	glGetProgramiv(m_program, GL_LINK_STATUS, &success); glCheckError();
 	if(!success){
 		char info_log[512];
-		glGetProgramInfoLog(program, 512, nullptr, info_log); glCheckError();
+		glGetProgramInfoLog(m_program, 512, nullptr, info_log); glCheckError();
 		std::stringstream ss;
 		ss << "Shader program linking failed: " << info_log;
 		throw std::runtime_error(ss.str());
@@ -82,7 +82,7 @@ Toucan::Resource<unsigned int> Toucan::Shader::compile(const std::string& source
 }
 
 void Toucan::Shader::set_uniform(const std::string& name, int value) const {
-	auto location = glGetUniformLocation(program, name.c_str()); glCheckError();
+	auto location = glGetUniformLocation(m_program, name.c_str()); glCheckError();
 	if (location == -1){
 		return;
 	}
@@ -90,7 +90,7 @@ void Toucan::Shader::set_uniform(const std::string& name, int value) const {
 }
 
 void Toucan::Shader::set_uniform(const std::string& name, float value) const {
-	auto location = glGetUniformLocation(program, name.c_str()); glCheckError();
+	auto location = glGetUniformLocation(m_program, name.c_str()); glCheckError();
 	if (location == -1){
 		return;
 	}
@@ -102,7 +102,7 @@ void Toucan::Shader::set_uniform(const std::string& name, bool value) const {
 }
 
 void Toucan::Shader::set_uniform(const std::string& name, const Eigen::Vector2f& value) const {
-	auto location = glGetUniformLocation(program, name.c_str()); glCheckError();
+	auto location = glGetUniformLocation(m_program, name.c_str()); glCheckError();
 	if (location == -1){
 		return;
 	}
@@ -110,7 +110,7 @@ void Toucan::Shader::set_uniform(const std::string& name, const Eigen::Vector2f&
 }
 
 void Toucan::Shader::set_uniform(const std::string& name, const Eigen::Vector3f& value) const {
-	auto location = glGetUniformLocation(program, name.c_str()); glCheckError();
+	auto location = glGetUniformLocation(m_program, name.c_str()); glCheckError();
 	if (location == -1){
 		return;
 	}
@@ -118,7 +118,7 @@ void Toucan::Shader::set_uniform(const std::string& name, const Eigen::Vector3f&
 }
 
 void Toucan::Shader::set_uniform(const std::string& name, const Eigen::Matrix4f& value) const {
-	auto location = glGetUniformLocation(program, name.c_str()); glCheckError();
+	auto location = glGetUniformLocation(m_program, name.c_str()); glCheckError();
 	if (location == -1){
 		return;
 	}
@@ -126,5 +126,7 @@ void Toucan::Shader::set_uniform(const std::string& name, const Eigen::Matrix4f&
 }
 
 void Toucan::Shader::use() const {
-	glUseProgram(program); glCheckError();
+	if (!m_program.is_empty()) {
+		glUseProgram(m_program); glCheckError();
+	}
 }

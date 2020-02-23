@@ -10,16 +10,14 @@
 #include <iostream>
 #include <glad/glad.h>
 
-inline void glCheckError_(const char *file, int line)
-{
+inline void glCheckError_(const char *file, int line) {
 	std::ostringstream ss;
 	ss << "OpenGL Error: \n";
 	GLenum errorCode;
 	
 	bool error = false;
 	
-	while ((errorCode = glGetError()) != GL_NO_ERROR)
-	{
+	while ((errorCode = glGetError()) != GL_NO_ERROR) {
 		error = true;
 		std::string error;
 		switch (errorCode)
@@ -36,7 +34,6 @@ inline void glCheckError_(const char *file, int line)
 		ss << "\t- " << error << " | " << file << " (line: " << line << ")\n";
 	}
 	if (error) {
-		
 		throw std::runtime_error(ss.str());
 	}
 }

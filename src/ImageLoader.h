@@ -4,6 +4,8 @@
 #include <utility>
 #include <experimental/filesystem>
 
+#include "device/PitchedCUDABuffer.h"
+
 class ImageLoader {
 public:
 	explicit ImageLoader(std::experimental::filesystem::path dataset_path);
@@ -12,11 +14,7 @@ public:
 	[[nodiscard]] bool has_next() const;
 	void next();
 	
-	struct Image {
-		void* buffer_ptr;
-		int width, height;
-	};
-	[[nodiscard]] Image get_image() const;
+	void get_image(PitchedCUDABuffer& image_buffer) const;
 	
 private:
 	size_t m_image_index = 0;

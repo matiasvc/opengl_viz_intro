@@ -12,6 +12,7 @@ namespace Toucan {
 
 class Shader {
 public:
+	Shader() = default;
 	Shader(const std::string& vertex_source, const std::string& fragment_source);
 	Shader(const std::string& vertex_source, const std::string& geometry_source, const std::string& fragment_source);
 	
@@ -26,7 +27,8 @@ public:
 
 private:
 	Resource<uint32_t> compile(const std::string& source_code, GLenum type);
-	Resource<uint32_t> program;
+	
+	Resource<uint32_t> m_program;
 };
 
 } // namespace Toucan

@@ -1,12 +1,14 @@
-#include "gl/ImageDrawer2D.h"
+#include "gl/CUDAImageDrawer2D.h"
 
 #include <array>
 #include <glad/glad.h>
+#include <cuda_gl_interop.h>
 
 #include "gl/GLDebug.h"
 #include "gl/GLUtils.h"
+#include "device/cuda_debug.h"
 
-constexpr auto image_2d_vs = R"GLSL(
+constexpr auto cuda_image_2d_vs = R"GLSL(
 #version 450 core
 
 layout (location = 0) in vec3 position;
@@ -24,7 +26,7 @@ void main() {
 
 )GLSL";
 
-constexpr auto image_2d_fs = R"GLSL(
+constexpr auto cuda_image_2d_rgb_fs = R"GLSL(
 #version 450
 
 in vec2 uv_coordinate;
@@ -34,15 +36,28 @@ uniform sampler2D image;
 out vec4 fragment_color;
 
 void main() {
-	fragment_color = texture(image, uv_coordinate);
+	fragment_color = vec4(texture(image, uv_coordinate).rgb, 1.0);
 }
 
 )GLSL";
 
-Toucan::ImageDrawer2D::ImageDrawer2D(const Settings& settings)
-: m_shader{image_2d_vs, image_2d_fs},
-  m_lock_image_aspect{settings.lock_image_aspect.value_or(true)} {
-	
+constexpr auto cuda_image_2d_grauscale_fs = R"GLSL(
+#version 450
+
+in vec2 uv_coordinate;
+
+uniform sampler2D image;
+
+out vec4 fragment_color;
+
+void main() {
+	fragment_color = vec4(texture(image, uv_coordinate).rrr, 1.0);
+}
+
+)GLSL";
+
+Toucan::CUDAImageDrawer2D::CUDAImageDrawer2D(const Toucan::CUDAImageDrawer2D::Settings& settings)
+: m_lock_image_aspect{settings.lock_image_aspect.value_or(true)} {
 	const std::array<float, 20> vertices = {
 			1.0f, 1.0f, 0.0f,   1.0f, 1.0f, // top right
 			1.0f, 0.0f, 0.0f,   1.0f, 0.0f, // bottom right
@@ -87,38 +102,39 @@ Toucan::ImageDrawer2D::ImageDrawer2D(const Settings& settings)
 	
 	glBindVertexArray(0); glCheckError();
 	
-	m_texture = make_resource<uint32_t>(
-			[](auto& r){ glGenTextures(1, &r); glCheckError(); },
-			[](auto r){ glDeleteTextures(1, &r); glCheckError(); }
+	m_cuda_stream = make_resource<cudaStream_t>(
+			[](auto& r){ cudaStreamCreate(&r); },
+			[](auto r){ cudaStreamSynchronize(r); cudaStreamDestroy(r); }
 	);
-	
-	glBindTexture(GL_TEXTURE_2D, m_texture); glCheckError();
-	
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glCheckError();
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); glCheckError();
-	
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glCheckError();
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); glCheckError();
-	
-	
-	glBindTexture(GL_TEXTURE_2D, 0); glCheckError();
 }
 
-void Toucan::ImageDrawer2D::set_image(const Image &image) {
+void Toucan::CUDAImageDrawer2D::set_image(const CUDAImage &cuda_image) {
+	
+	update_texture(cuda_image);
+	
 	glBindTexture(GL_TEXTURE_2D, m_texture); glCheckError();
 	glActiveTexture(GL_TEXTURE0); glCheckError();
-	switch (image.format) {
-		case ImageFormat::RGB_U8: {
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, image.width_in_pixels, image.height_in_pixels, 0, GL_RGB, GL_UNSIGNED_BYTE, image.buffer_ptr); glCheckError();
-		} break;
-	}
+	
+	CUDA_CHECK( cudaGraphicsMapResources(1, &m_cuda_graphics_resource, m_cuda_stream) );
+	cudaArray_t cuda_array = nullptr;
+	CUDA_CHECK( cudaGraphicsSubResourceGetMappedArray(&cuda_array, m_cuda_graphics_resource, 0, 0) );
+	
+	CUDA_CHECK( cudaMemcpy2DToArrayAsync(
+			cuda_array, 0, 0,
+			cuda_image.dev_buffer_ptr, cuda_image.pitch_in_bytes, cuda_image.pixel_size_in_bytes * cuda_image.width_in_pixels, cuda_image.height_in_pixels,
+			cudaMemcpyDeviceToDevice, m_cuda_stream
+	) );
+	
+	CUDA_CHECK( cudaGraphicsUnmapResources(1, &m_cuda_graphics_resource, m_cuda_stream) );
+	CUDA_CHECK( cudaStreamSynchronize(m_cuda_stream) );
+	
 	glBindTexture(GL_TEXTURE_2D, 0); glCheckError();
 	
-	m_image_width = image.width_in_pixels;
-	m_image_height = image.height_in_pixels;
+	m_image_width = cuda_image.width_in_pixels;
+	m_image_height = cuda_image.height_in_pixels;
 }
 
-void Toucan::ImageDrawer2D::draw(const Eigen::Vector2i& framebuffer_size, const Rectangle& draw_rectangle) {
+void Toucan::CUDAImageDrawer2D::draw(const Eigen::Vector2i &framebuffer_size, const Rectangle &draw_rectangle) {
 	if (m_texture.is_empty()) { return; }
 	
 	Rectangle adjusted_draw_rectangle = draw_rectangle;
@@ -154,4 +170,45 @@ void Toucan::ImageDrawer2D::draw(const Eigen::Vector2i& framebuffer_size, const 
 	glBindTexture(GL_TEXTURE_2D, m_texture);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 	glBindVertexArray(0);
+}
+
+void Toucan::CUDAImageDrawer2D::update_texture(const Toucan::CUDAImageDrawer2D::CUDAImage& cuda_image) {
+	if (m_image_width == cuda_image.width_in_pixels and
+	    m_image_height == cuda_image.height_in_pixels and
+	    m_image_format == cuda_image.format) { return; }
+	
+	m_texture = make_resource<uint32_t>(
+			[](auto& r){ glGenTextures(1, &r); glCheckError(); },
+			[](auto r){ glDeleteTextures(1, &r); glCheckError(); }
+	);
+	
+	glBindTexture(GL_TEXTURE_2D, m_texture); glCheckError();
+	glActiveTexture(GL_TEXTURE0); glCheckError();
+	
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glCheckError();
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); glCheckError();
+	
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glCheckError();
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); glCheckError();
+	
+	switch (cuda_image.format) {
+		case ImageFormat::RGBX_U8: {
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, cuda_image.width_in_pixels, cuda_image.height_in_pixels, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr); glCheckError();
+			m_shader = Shader(cuda_image_2d_vs, cuda_image_2d_rgb_fs);
+		} break;
+		case ImageFormat::R_U8: {
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, cuda_image.width_in_pixels, cuda_image.height_in_pixels, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr); glCheckError();
+			m_shader = Shader(cuda_image_2d_vs, cuda_image_2d_grauscale_fs);
+		} break;
+		default: {
+			throw std::runtime_error("ERROR: Unknown image format.");
+		}
+	}
+	
+	glBindTexture(GL_TEXTURE_2D, 0); glCheckError();
+	CUDA_CHECK( cudaGraphicsGLRegisterImage(&m_cuda_graphics_resource, m_texture, GL_TEXTURE_2D, cudaGraphicsRegisterFlagsWriteDiscard) );
+	
+	m_image_width = cuda_image.width_in_pixels;
+	m_image_height = cuda_image.height_in_pixels;
+	m_image_format = cuda_image.format;
 }

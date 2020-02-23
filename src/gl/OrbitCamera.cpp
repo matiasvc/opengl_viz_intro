@@ -19,8 +19,8 @@ void Toucan::OrbitCamera::change_distance(float distance_delta) {
 	m_distance += distance_delta;
 }
 
-Eigen::Matrix4f Toucan::OrbitCamera::get_camera_projection(int screen_width, int screen_height, float near_clip, float far_clip, float focal_length) const {
-	return projection_matrix_symmetric(near_clip, far_clip, screen_width, screen_height, focal_length);
+Eigen::Matrix4f Toucan::OrbitCamera::get_camera_projection(const Eigen::Vector2i& screen_size, float near_clip, float far_clip, float focal_length) const {
+	return projection_matrix_symmetric(near_clip, far_clip, screen_size, focal_length);
 }
 
 Transform Toucan::OrbitCamera::get_camera_transform() const {

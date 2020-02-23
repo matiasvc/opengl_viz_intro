@@ -4,7 +4,6 @@
 
 #include "gl/GLDebug.h"
 #include "gl/GLUtils.h"
-#include "util/Resource.h"
 
 constexpr auto point_3d_vs = R"GLSL(
 #version 450 core
@@ -77,8 +76,7 @@ Toucan::PointDrawer3D::PointDrawer3D()
 : m_shader{point_3d_vs, point_3d_fs}
 { }
 
-void Toucan::PointDrawer3D::set_data(const std::vector<Point3D>& points)
-{
+void Toucan::PointDrawer3D::set_data(const std::vector<Point3D>& points) {
 	m_vao = make_resource<uint32_t>(
 		[](auto& r){ glGenVertexArrays(1, &r); glCheckError(); },
 		[](auto r){ glDeleteVertexArrays(1, &r); glCheckError(); }
@@ -90,7 +88,7 @@ void Toucan::PointDrawer3D::set_data(const std::vector<Point3D>& points)
 	
 	glBindVertexArray(m_vao); glCheckError();
 	glBindBuffer(GL_ARRAY_BUFFER, m_vbo); glCheckError();
-	glBufferData(GL_ARRAY_BUFFER, sizeof(Point3D) * points.size(), points.data(), GL_STATIC_DRAW); glCheckError();
+	glBufferData(GL_ARRAY_BUFFER, sizeof(Point3D) * points.size(), points.data(), GL_DYNAMIC_DRAW); glCheckError();
 	m_number_of_points = points.size();
 	
 	// Position
@@ -110,14 +108,14 @@ void Toucan::PointDrawer3D::set_data(const std::vector<Point3D>& points)
 	
 	// Shape
 	constexpr auto shape_location = 3;
-	glVertexAttribIPointer(shape_location, 1, GL_INT, sizeof(Point3D), reinterpret_cast<void*>(offset_of(&Point3D::shape))); glCheckError();
+	glVertexAttribIPointer(shape_location, 1, GL_UNSIGNED_BYTE, sizeof(Point3D), reinterpret_cast<void*>(offset_of(&Point3D::shape))); glCheckError();
 	glEnableVertexAttribArray(shape_location); glCheckError();
 	
 	glBindVertexArray(0); glCheckError();
 }
 
 void Toucan::PointDrawer3D::draw(const Eigen::Matrix4f& camera_projection, const Transform& world_to_camera, const Transform& world_to_object) const {
-	if(m_number_of_points == 0) { return; }
+	if (m_number_of_points == 0) { return; }
 	
 	// Prepare shader
 	m_shader.use();

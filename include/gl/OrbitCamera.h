@@ -14,7 +14,7 @@ public:
 	void move(const Eigen::Vector3f& position_delta);
 	void change_distance(float distance_delta);
 	
-	[[nodiscard]] Eigen::Matrix4f get_camera_projection(int screen_width, int screen_height, float near_clip, float far_clip, float focal_length) const;
+	[[nodiscard]] Eigen::Matrix4f get_camera_projection(const Eigen::Vector2i& screen_size, float near_clip, float far_clip, float focal_length) const;
 	[[nodiscard]] Transform get_camera_transform() const;
 
 private:

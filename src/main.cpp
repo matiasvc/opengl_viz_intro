@@ -3,7 +3,6 @@
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <stb/stb_image.h>
 
 #include "util/Resource.h"
 #include "gl/Shader.h"
@@ -14,16 +13,16 @@
 #include "gl/WorldGridDrawer.h"
 #include "gl/PrimitiveDrawer3D.h"
 #include "gl/OrbitCamera.h"
+#include "gl/ImageDrawer2D.h"
+#include <gl/PointDrawer2D.h>
+#include <gl/CUDAImageDrawer2D.h>
+
+#include "device/image_gradient.h"
+#include "device/image_grayscale.h"
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
-#include "gl/WorldGridDrawer.h"
-#include "gl/LineDrawer3D.h"
-#include "gl/OrbitCamera.h"
-#include "gl/PointDrawer3D.h"
-#include "gl/PrimitiveDrawer3D.h"
-#include "gl/ImageDrawer2D.h"
 
 #include "ImageLoader.h"
 
@@ -61,7 +60,7 @@ int main() {
 	
 	// Create GLFW Window
 	Toucan::Resource<GLFWwindow*> window = Toucan::make_resource(
-		glfwCreateWindow(800, 600, "OpenGL Visualizer", nullptr, nullptr),
+		glfwCreateWindow(1400, 1200, "OpenGL Visualizer", nullptr, nullptr),
 		[](auto r){ glfwDestroyWindow(r); }
 	);
 	
@@ -82,54 +81,17 @@ int main() {
 	}
 	
 	init_imgui(window);
-	std::default_random_engine generator;
-	std::uniform_real_distribution<float> distribution(5.0f,20.0f);
-	std::vector<Toucan::PointDrawer3D::Point3D> points;
-	for (int i = 0; i < 200; ++i) {
-		points.emplace_back(Toucan::PointDrawer3D::Point3D{Eigen::Vector3f::Random() * 3.5f, Eigen::Vector4f(0.8f, 0.7f, 0.2f, 1.0f), distribution(generator), Toucan::PointDrawer3D::PointShape::Circle});
-	}
-	Toucan::PointDrawer3D point_drawer;
-	point_drawer.set_data(points);
 	
-	std::vector<Toucan::LineDrawer3D::LineVertex> line_vertices;
-	const Eigen::Vector4f point_color(1.0f, 0.0f, 0.0f, 1.0f);
-	line_vertices.emplace_back(Toucan::LineDrawer3D::LineVertex{Eigen::Vector3f::Zero(), point_color});
-	line_vertices.emplace_back(Toucan::LineDrawer3D::LineVertex{Eigen::Vector3f(1.0f, 0.0f, 0.0f), point_color});
+	Toucan::CUDAImageDrawer2D cuda_color_image_drawer;
+	Toucan::CUDAImageDrawer2D cuda_grayscale_image_drawer;
 	
-	line_vertices.emplace_back(Toucan::LineDrawer3D::LineVertex{Eigen::Vector3f::Zero(), point_color});
-	line_vertices.emplace_back(Toucan::LineDrawer3D::LineVertex{Eigen::Vector3f(0.0f, 1.0f, 0.0f), point_color});
 	
-	line_vertices.emplace_back(Toucan::LineDrawer3D::LineVertex{Eigen::Vector3f::Zero(), point_color});
-	line_vertices.emplace_back(Toucan::LineDrawer3D::LineVertex{Eigen::Vector3f(0.0f, 0.0f, 1.0f), point_color});
+	ImageLoader image_loader("/home/matiasvc/datasets/rgbd_dataset_freiburg3_long_office_household/");
 	
-	Toucan::LineDrawer3D line_drawer;
-	line_drawer.set_data(line_vertices, Toucan::LineDrawer3D::DrawMode::Lines, 3.0f);
-	
-	Toucan::OrbitCamera camera;
-	
-	Eigen::Vector3f pos = Eigen::Vector3f::Zero();
-	
-	Toucan::WorldGridDrawer world_grid_drawer;
-	
-	Toucan::PrimitiveDrawer3D primitive_drawer;
-	
-	primitive_drawer.set_data(
-			Toucan::PrimitiveDrawer3D::Primitive3D{
-					Eigen::Vector3f::Zero(),
-					Eigen::Quaternionf::Identity(),
-					Eigen::Vector3f::Ones(),
-					Eigen::Vector4f(0.25f, 0.95f, 0.8f, 1.0f),
-					Toucan::PrimitiveDrawer3D::PrimitiveShape::Sphere
-	}
-	);
-	
-	Eigen::Vector3f cube_pos = Eigen::Vector3f::Zero();
-	Eigen::Vector3f cube_euler = Eigen::Vector3f::Zero();
-	Eigen::Vector2f top_left = Eigen::Vector2f::Zero();
-	Eigen::Vector2f size = Eigen::Vector2f(100.0f, 100.0f);
-	
-	Toucan::ImageDrawer2D image_drawer;
-	ImageLoader image_loader("/home/matiasvc/datasets/rgbd_dataset_freiburg1_desk2/");
+	PitchedCUDABuffer color_image;
+	color_image.resize(4*sizeof(uint8_t), 640, 480);
+	PitchedCUDABuffer grayscale_image;
+	grayscale_image.resize(sizeof(uint8_t), 640, 480);
 	
 	while (!glfwWindowShouldClose(window)) {
 		process_input(window);
@@ -145,67 +107,36 @@ int main() {
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		
-		int fb_width, fb_height;
-		glfwGetFramebufferSize(window, &fb_width, &fb_height);
+		Eigen::Vector2i framebuffer_size;
+		glfwGetFramebufferSize(window, &framebuffer_size.x(), &framebuffer_size.y());
 		
-		Eigen::Matrix4f camera_projection = camera.get_camera_projection(fb_width, fb_height, 0.01f, 100.0f, 1500.0f);
-		Transform camera_transform = camera.get_camera_transform();
 		
-		point_drawer.draw(camera_projection, camera_transform);
-		line_drawer.draw(camera_projection, camera_transform, Transform(pos));
-		world_grid_drawer.draw(camera_projection, camera_transform);
-		
-		auto image = image_loader.get_image();
+		image_loader.get_image(color_image);
 		image_loader.next();
-		Toucan::ImageDrawer2D::Image toucan_image{};
-		toucan_image.buffer_ptr = image.buffer_ptr;
-		toucan_image.format = Toucan::ImageDrawer2D::ImageFormat::RGB_U8;
-		toucan_image.width = image.width;
-		toucan_image.height = image.height;
-		image_drawer.set_texture(toucan_image);
-		image_drawer.draw(Toucan::Rectangle(top_left, size), fb_width, fb_height);
 		
-		const Eigen::Quaternionf cube_orient = Eigen::AngleAxisf(cube_euler.x(), Eigen::Vector3f::UnitX()) *
-				Eigen::AngleAxisf(cube_euler.y(), Eigen::Vector3f::UnitY()) *
-				Eigen::AngleAxisf(cube_euler.z(), Eigen::Vector3f::UnitZ());
-		primitive_drawer.draw(camera_projection, camera_transform, Transform(cube_pos, cube_orient));
+		compute_grayscale(color_image, grayscale_image);
+		
+		cuda_color_image_drawer.set_image(Toucan::CUDAImageDrawer2D::CUDAImage{
+			.dev_buffer_ptr = color_image.get_dev_ptr(),
+			.format = Toucan::CUDAImageDrawer2D::ImageFormat::RGBX_U8,
+			.width_in_pixels = static_cast<uint32_t>(color_image.get_elements_per_row()),
+			.height_in_pixels = static_cast<uint32_t>(color_image.get_number_of_rows()),
+			.pixel_size_in_bytes = static_cast<uint32_t>(color_image.get_element_size_in_bytes()),
+			.pitch_in_bytes = static_cast<uint32_t>(color_image.get_pitch_in_bytes())
+		});
+		cuda_color_image_drawer.draw(framebuffer_size, Toucan::Rectangle(Eigen::Vector2f(0.0f, 0.0f), Eigen::Vector2f(512.0f, 350.0f)));
+		
+		cuda_grayscale_image_drawer.set_image(Toucan::CUDAImageDrawer2D::CUDAImage{
+				.dev_buffer_ptr = grayscale_image.get_dev_ptr(),
+				.format = Toucan::CUDAImageDrawer2D::ImageFormat::R_U8,
+				.width_in_pixels = static_cast<uint32_t>(grayscale_image.get_elements_per_row()),
+				.height_in_pixels = static_cast<uint32_t>(grayscale_image.get_number_of_rows()),
+				.pixel_size_in_bytes = static_cast<uint32_t>(grayscale_image.get_element_size_in_bytes()),
+				.pitch_in_bytes = static_cast<uint32_t>(grayscale_image.get_pitch_in_bytes())
+		});
+		cuda_grayscale_image_drawer.draw(framebuffer_size, Toucan::Rectangle(Eigen::Vector2f(0.0f, 350.0f), Eigen::Vector2f(512.0f, 350.0f)));
 		
 		ImGuiIO& io = ImGui::GetIO();
-		// Right mouse-button drag
-		if (ImGui::IsMouseDragging(0) && !ImGui::IsAnyWindowFocused())
-		{
-			ImVec2 vec = io.MouseDelta;
-			const float rotateSpeed = 0.003f;
-			camera.rotate(-vec.y*rotateSpeed, vec.x*rotateSpeed);
-		}
-		
-		// Left mouse-button drag
-		if (ImGui::IsMouseDragging(1) && !ImGui::IsAnyWindowFocused())
-		{
-			ImVec2 vec = io.MouseDelta;
-			const float moveSpeed = 0.002f;
-			camera.move(Eigen::Vector3f(vec.x*moveSpeed, 0.0f, vec.y*moveSpeed));
-		}
-		
-		// Mouse wheel
-		if (!ImGui::IsAnyWindowFocused())
-		{
-			const float scroll = io.MouseWheel;
-			const float zoomSpeed = 0.5f;
-			
-			if (scroll != 0.0f)
-			{
-				camera.change_distance(-scroll*zoomSpeed);
-			}
-		}
-		
-		if (ImGui::Begin("Camera")) {
-			ImGui::DragFloat3("Pos", cube_pos.data(), 0.01f, -1.0f, 1.0f);
-			ImGui::DragFloat3("rot", cube_euler.data(), 0.01f, -1.0f, 1.0f);
-			ImGui::DragFloat2("Top lef", top_left.data(), 1.0f, 0.0f, 100.0f);
-		} ImGui::End();
-		
-		
 		
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

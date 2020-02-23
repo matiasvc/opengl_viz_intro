@@ -7,7 +7,6 @@
 #include "util/Transform.h"
 #include "util/Resource.h"
 #include "gl/Shader.h"
-#include "Shader.h"
 
 
 namespace Toucan {
@@ -17,13 +16,11 @@ public:
 	PointDrawer3D();
 	
 	enum class PointShape : uint8_t { Square = 0, Circle = 1, Diamond = 2, Cross = 3 };
-	
 	struct Point3D {
 		Eigen::Vector3f position;
 		Eigen::Vector4f color;
 		float size;
 		PointShape shape;
-		
 		EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 	};
 	
