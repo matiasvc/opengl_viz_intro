@@ -1,10 +1,23 @@
 #include "device/image_gradient.h"
 
 #include <cassert>
+#include <limits>
 #include <device_launch_parameters.h>
 #include <cuda_runtime.h>
 
 #include "device/cuda_debug.h"
+
+__constant__ float scharr_hoizontal[3][3] = {
+		{ -3.0f,  0.0f,  3.0f},
+		{-10.0f,  0.0f, 10.0f},
+		{ -3.0f,  0.0f,  3.0f}
+};
+
+__constant__ float scharr_vertical[3][3] = {
+		{-3.0f, -10.0f, -3.0f},
+		{ 0.0f,   0.0f,  0.0f},
+		{ 3.0f,  10.0f,  3.0f}
+};
 
 __global__ void compute_horizontal_gradient_kernel(
 		void* grayscale_img_ptr, uint32_t grayscale_image_pitch,
@@ -17,11 +30,52 @@ __global__ void compute_horizontal_gradient_kernel(
 	if (image_index_u >= image_width or image_index_v >= image_height) { return; }
 	
 	uint8_t* grayscale_byte_ptr = reinterpret_cast<uint8_t*>(grayscale_img_ptr);
-	grayscale_byte_ptr += grayscale_image_pitch*image_index_v + sizeof(uchar1)*image_index_u;
+	float filter_sum = 0;
+	
+	for (int v = -1; v <= 1; ++v) {
+		for (int u = -1; u <= 1; ++u) {
+			const int index_offset_u = min(max(0, u), image_width - 1);
+			const int index_offset_v = min(max(0, v), image_height - 1);
+			
+			const uint8_t pixel_value = grayscale_byte_ptr[(image_index_v + index_offset_v) * grayscale_image_pitch + (image_index_u + index_offset_u)];
+			
+			filter_sum += scharr_hoizontal[index_offset_v + 1][index_offset_u + 1] * static_cast<float>(pixel_value);
+		}
+	}
+	
+	filter_sum *= 1.0f/9.0f;
+	filter_sum = fminf(fmaxf(filter_sum, static_cast<float>(std::numeric_limits<int16_t>::min())), static_cast<float>(std::numeric_limits<int16_t>::max()));
+	
 	uint8_t* gradient_byte_ptr = reinterpret_cast<uint8_t*>(gradient_img_ptr);
-	gradient_byte_ptr += gradient_image_pitch*image_index_v + sizeof(short1)*image_index_u;
+	gradient_byte_ptr += image_index_v*gradient_image_pitch + sizeof(int16_t)*image_index_u;
+	
+	int16_t* gradient_short_ptr = reinterpret_cast<int16_t*>(gradient_byte_ptr);
+	
+	*gradient_short_ptr = static_cast<int16_t>(filter_sum);
 }
 
 void compute_gradient(const PitchedCUDABuffer& grayscale_image, PitchedCUDABuffer& horizontal_gradient, PitchedCUDABuffer& vertical_gradient) {
-
+	// sanity check the input
+	assert(grayscale_image.get_element_size_in_bytes() == sizeof(uint8_t));
+	assert(horizontal_gradient.get_element_size_in_bytes() == sizeof(int16_t));
+	assert(vertical_gradient.get_element_size_in_bytes() == sizeof(int16_t));
+	assert(grayscale_image.get_elements_per_row() == horizontal_gradient.get_elements_per_row());
+	assert(grayscale_image.get_number_of_rows() == horizontal_gradient.get_number_of_rows());
+	assert(grayscale_image.get_elements_per_row() == vertical_gradient.get_elements_per_row());
+	assert(grayscale_image.get_number_of_rows() == vertical_gradient.get_number_of_rows());
+	
+	const uint32_t image_width = grayscale_image.get_elements_per_row();
+	const uint32_t image_height = grayscale_image.get_number_of_rows();
+	
+	const dim3 grayscale_block_dim(32, 32, 1);
+	const dim3 grayscale_grid_dim(image_width/grayscale_block_dim.x + (image_width % grayscale_block_dim.x == 0 ? 0 : 1),
+	                              image_height/grayscale_block_dim.y + (image_height % grayscale_block_dim.y == 0 ? 0 : 1),
+	                              1);
+	
+	compute_horizontal_gradient_kernel<<<grayscale_grid_dim, grayscale_block_dim>>>(
+			grayscale_image.get_dev_ptr(), grayscale_image.get_pitch_in_bytes(),
+			horizontal_gradient.get_dev_ptr(), horizontal_gradient.get_pitch_in_bytes(),
+			image_width, image_height);
+	
+	CUDA_SYNC_CHECK();
 }

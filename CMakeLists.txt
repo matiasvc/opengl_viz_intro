@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 find_package(CUDA REQUIRED)
 message(STATUS "Found CUDA ${CUDA_VERSION} at ${CUDA_TOOLKIT_ROOT_DIR}")
 include_directories("${CUDA_INCLUDE_DIRS}")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr")
 
 # Eigen: For linear algebra
 find_package(Eigen3 REQUIRED NO_MODULE)

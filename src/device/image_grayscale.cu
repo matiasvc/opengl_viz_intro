@@ -32,7 +32,7 @@ __global__ void compute_grayscale_kernel(
 
 
 void compute_grayscale(const PitchedCUDABuffer& color_image, PitchedCUDABuffer& grayscale_image) {
-	// Sanity check the input
+	// sanity check the input
 	assert(color_image.get_element_size_in_bytes() == 4 * sizeof(uint8_t));
 	assert(grayscale_image.get_element_size_in_bytes() == sizeof(uint8_t));
 	assert(color_image.get_elements_per_row() == grayscale_image.get_elements_per_row());

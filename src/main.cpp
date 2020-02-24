@@ -84,6 +84,8 @@ int main() {
 	
 	Toucan::CUDAImageDrawer2D cuda_color_image_drawer;
 	Toucan::CUDAImageDrawer2D cuda_grayscale_image_drawer;
+	Toucan::CUDAImageDrawer2D cuda_horizontal_gradient_image_drawer;
+	Toucan::CUDAImageDrawer2D cuda_vertical_gradient_image_drawer;
 	
 	
 	ImageLoader image_loader("/home/matiasvc/datasets/rgbd_dataset_freiburg3_long_office_household/");
@@ -92,6 +94,10 @@ int main() {
 	color_image.resize(4*sizeof(uint8_t), 640, 480);
 	PitchedCUDABuffer grayscale_image;
 	grayscale_image.resize(sizeof(uint8_t), 640, 480);
+	PitchedCUDABuffer horizontal_gradient_image;
+	horizontal_gradient_image.resize(sizeof(int16_t), 640, 480);
+	PitchedCUDABuffer vertical_gradient_image;
+	vertical_gradient_image.resize(sizeof(int16_t), 640, 480);
 	
 	while (!glfwWindowShouldClose(window)) {
 		process_input(window);
@@ -115,6 +121,7 @@ int main() {
 		image_loader.next();
 		
 		compute_grayscale(color_image, grayscale_image);
+		compute_gradient(grayscale_image, horizontal_gradient_image, vertical_gradient_image);
 		
 		cuda_color_image_drawer.set_image(Toucan::CUDAImageDrawer2D::CUDAImage{
 			.dev_buffer_ptr = color_image.get_dev_ptr(),
@@ -135,6 +142,16 @@ int main() {
 				.pitch_in_bytes = static_cast<uint32_t>(grayscale_image.get_pitch_in_bytes())
 		});
 		cuda_grayscale_image_drawer.draw(framebuffer_size, Toucan::Rectangle(Eigen::Vector2f(0.0f, 350.0f), Eigen::Vector2f(512.0f, 350.0f)));
+		
+		cuda_horizontal_gradient_image_drawer.set_image(Toucan::CUDAImageDrawer2D::CUDAImage{
+				.dev_buffer_ptr = horizontal_gradient_image.get_dev_ptr(),
+				.format = Toucan::CUDAImageDrawer2D::ImageFormat::R_S16,
+				.width_in_pixels = static_cast<uint32_t>(horizontal_gradient_image.get_elements_per_row()),
+				.height_in_pixels = static_cast<uint32_t>(horizontal_gradient_image.get_number_of_rows()),
+				.pixel_size_in_bytes = static_cast<uint32_t>(horizontal_gradient_image.get_element_size_in_bytes()),
+				.pitch_in_bytes = static_cast<uint32_t>(horizontal_gradient_image.get_pitch_in_bytes())
+		});
+		cuda_horizontal_gradient_image_drawer.draw(framebuffer_size, Toucan::Rectangle(Eigen::Vector2f(0.0f, 2*350.0f), Eigen::Vector2f(512.0f, 350.0f)));
 		
 		ImGuiIO& io = ImGui::GetIO();
 		

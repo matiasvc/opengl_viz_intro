@@ -41,7 +41,7 @@ void main() {
 
 )GLSL";
 
-constexpr auto cuda_image_2d_grauscale_fs = R"GLSL(
+constexpr auto cuda_image_2d_grayscale_fs = R"GLSL(
 #version 450
 
 in vec2 uv_coordinate;
@@ -52,6 +52,23 @@ out vec4 fragment_color;
 
 void main() {
 	fragment_color = vec4(texture(image, uv_coordinate).rrr, 1.0);
+}
+
+)GLSL";
+
+
+constexpr auto cuda_image_2d_gradient_fs = R"GLSL(
+#version 450
+
+in vec2 uv_coordinate;
+
+uniform sampler2D image;
+
+out vec4 fragment_color;
+
+void main() {
+	//fragment_color = vec4(texture(0.5 + *image, uv_coordinate).rrr, 1.0);
+	fragment_color = vec4(vec3(0.5) + 40*texture(image, uv_coordinate).rrr, 1.0);
 }
 
 )GLSL";
@@ -198,7 +215,11 @@ void Toucan::CUDAImageDrawer2D::update_texture(const Toucan::CUDAImageDrawer2D::
 		} break;
 		case ImageFormat::R_U8: {
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, cuda_image.width_in_pixels, cuda_image.height_in_pixels, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr); glCheckError();
-			m_shader = Shader(cuda_image_2d_vs, cuda_image_2d_grauscale_fs);
+			m_shader = Shader(cuda_image_2d_vs, cuda_image_2d_grayscale_fs);
+		} break;
+		case ImageFormat::R_S16: {
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_R16, cuda_image.width_in_pixels, cuda_image.height_in_pixels, 0, GL_RED, GL_SHORT, nullptr); glCheckError();
+			m_shader = Shader(cuda_image_2d_vs, cuda_image_2d_gradient_fs);
 		} break;
 		default: {
 			throw std::runtime_error("ERROR: Unknown image format.");
