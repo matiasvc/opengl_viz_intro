@@ -24,30 +24,32 @@ __global__ void compute_horizontal_gradient_kernel(
 		void* gradient_img_ptr, uint32_t gradient_image_pitch,
 		uint32_t image_width, uint32_t image_height) {
 	
-	const uint32_t image_index_u = blockIdx.x*blockDim.x + threadIdx.x;
-	const uint32_t image_index_v = blockIdx.y*blockDim.y + threadIdx.y;
+	const uint32_t gradient_image_index_u = blockIdx.x * blockDim.x + threadIdx.x;
+	const uint32_t gradient_image_index_v = blockIdx.y * blockDim.y + threadIdx.y;
 	
-	if (image_index_u >= image_width or image_index_v >= image_height) { return; }
+	if (gradient_image_index_u >= image_width or gradient_image_index_v >= image_height) { return; }
 	
 	uint8_t* grayscale_byte_ptr = reinterpret_cast<uint8_t*>(grayscale_img_ptr);
 	float filter_sum = 0;
 	
-	for (int v = -1; v <= 1; ++v) {
-		for (int u = -1; u <= 1; ++u) {
-			const int index_offset_u = min(max(0, u), image_width - 1);
-			const int index_offset_v = min(max(0, v), image_height - 1);
+	for (int offset_v = -1; offset_v <= 1; ++offset_v) {
+		for (int offset_u = -1; offset_u <= 1; ++offset_u) {
+			const int grayscale_image_index_u = min(max(0, gradient_image_index_u + offset_u), image_width - 1);
+			const int grayscale_image_index_v = min(max(0, gradient_image_index_v + offset_v), image_height - 1);
 			
-			const uint8_t pixel_value = grayscale_byte_ptr[(image_index_v + index_offset_v) * grayscale_image_pitch + (image_index_u + index_offset_u)];
+			const uint8_t pixel_value = grayscale_byte_ptr[gradient_image_index_v * grayscale_image_pitch + grayscale_image_index_u];
 			
-			filter_sum += scharr_hoizontal[index_offset_v + 1][index_offset_u + 1] * static_cast<float>(pixel_value);
+			const float filter_value = scharr_hoizontal[offset_v + 1][offset_u + 1];
+			
+			filter_sum += filter_value * static_cast<float>(pixel_value);
 		}
 	}
 	
-	filter_sum *= 1.0f/9.0f;
+	//filter_sum *= 1.0f/9.0f;
 	filter_sum = fminf(fmaxf(filter_sum, static_cast<float>(std::numeric_limits<int16_t>::min())), static_cast<float>(std::numeric_limits<int16_t>::max()));
 	
 	uint8_t* gradient_byte_ptr = reinterpret_cast<uint8_t*>(gradient_img_ptr);
-	gradient_byte_ptr += image_index_v*gradient_image_pitch + sizeof(int16_t)*image_index_u;
+	gradient_byte_ptr += gradient_image_index_v * gradient_image_pitch + sizeof(int16_t) * gradient_image_index_u;
 	
 	int16_t* gradient_short_ptr = reinterpret_cast<int16_t*>(gradient_byte_ptr);
 	
@@ -71,6 +73,8 @@ void compute_gradient(const PitchedCUDABuffer& grayscale_image, PitchedCUDABuffe
 	const dim3 grayscale_grid_dim(image_width/grayscale_block_dim.x + (image_width % grayscale_block_dim.x == 0 ? 0 : 1),
 	                              image_height/grayscale_block_dim.y + (image_height % grayscale_block_dim.y == 0 ? 0 : 1),
 	                              1);
+	
+	//const dim3 grayscale_grid_dim(1, 1, 1);
 	
 	compute_horizontal_gradient_kernel<<<grayscale_grid_dim, grayscale_block_dim>>>(
 			grayscale_image.get_dev_ptr(), grayscale_image.get_pitch_in_bytes(),

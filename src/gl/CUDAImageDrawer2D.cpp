@@ -68,7 +68,7 @@ out vec4 fragment_color;
 
 void main() {
 	//fragment_color = vec4(texture(0.5 + *image, uv_coordinate).rrr, 1.0);
-	fragment_color = vec4(vec3(0.5) + 40*texture(image, uv_coordinate).rrr, 1.0);
+	fragment_color = vec4(vec3(0.5) + 0.1*texture(image, uv_coordinate).rrr, 1.0);
 }
 
 )GLSL";
@@ -218,7 +218,7 @@ void Toucan::CUDAImageDrawer2D::update_texture(const Toucan::CUDAImageDrawer2D::
 			m_shader = Shader(cuda_image_2d_vs, cuda_image_2d_grayscale_fs);
 		} break;
 		case ImageFormat::R_S16: {
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_R16, cuda_image.width_in_pixels, cuda_image.height_in_pixels, 0, GL_RED, GL_SHORT, nullptr); glCheckError();
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_R16_SNORM, cuda_image.width_in_pixels, cuda_image.height_in_pixels, 0, GL_RED_INTEGER, GL_SHORT, nullptr); glCheckError();
 			m_shader = Shader(cuda_image_2d_vs, cuda_image_2d_gradient_fs);
 		} break;
 		default: {
