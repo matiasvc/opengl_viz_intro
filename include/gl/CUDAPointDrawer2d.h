@@ -1,17 +1,16 @@
 #pragma once
 
-
-#pragma once
-
 #include <vector>
 #include <cstdint>
 #include <optional>
 
 #include <Eigen/Core>
 
-#include <util/Rectangle.h>
-#include <util/Resource.h>
-#include <gl/Shader.h>
+#include <driver_types.h>
+
+#include "util/Rectangle.h"
+#include "util/Resource.h"
+#include "gl/Shader.h"
 
 
 namespace Toucan {
@@ -21,18 +20,14 @@ public:
 	struct Settings {
 		std::optional<bool> lock_image_aspect;
 	};
-	explicit PointDrawer2D(const Settings& = {});
+	explicit CUDAPointDrawer2D(const Settings& settings = {});
 	
-	enum class PointShape : uint8_t { Square = 0, Circle = 1, Diamond = 2, Cross = 3 };
-	struct Point2D {
-		Eigen::Vector2f position;
-		Eigen::Vector3f color;
-		float size;
-		PointShape shape;
-		EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+	struct CUDAPoints2D {
+		float* array_dev_ptr;
+		uint32_t number_of_elements;
 	};
 	
-	void set_data(const std::vector<Point2D>& points);
+	void set_data(const CUDAPoints2D& points);
 	void draw(const Eigen::Vector2i& framebuffer_size, const Rectangle& draw_rectangle, const Rectangle& data_rectangle);
 
 private:
@@ -40,6 +35,9 @@ private:
 	Resource<uint32_t> m_vbo;
 	Resource<uint32_t> m_vao;
 	Shader m_shader;
+	
+	Resource<cudaStream_t> m_cuda_stream;
+	cudaGraphicsResource_t m_cuda_graphics_resource = nullptr;
 	
 	// Settings
 	const bool m_lock_image_aspect;

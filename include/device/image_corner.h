@@ -5,8 +5,8 @@
 #include "device/CUDABuffer.h"
 
 struct CornerPoint {
-	uint32_t u;
-	uint32_t v;
+	float u;
+	float v;
 };
 
 void compute_corners(const PitchedCUDABuffer& horizontal_gradient, const PitchedCUDABuffer& vertical_gradient, PitchedCUDABuffer& corner_response,

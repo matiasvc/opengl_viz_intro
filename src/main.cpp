@@ -9,6 +9,7 @@
 
 #include "gl/ImageDrawer2D.h"
 #include <gl/CUDAImageDrawer2D.h>
+#include <gl/CUDAPointDrawer2d.h>
 
 #include "device/image_gradient.h"
 #include "device/image_grayscale.h"
@@ -84,6 +85,7 @@ int main() {
 	Toucan::CUDAImageDrawer2D cuda_horizontal_gradient_image_drawer;
 	Toucan::CUDAImageDrawer2D cuda_vertical_gradient_image_drawer;
 	Toucan::CUDAImageDrawer2D cuda_corner_image_drawer;
+	Toucan::CUDAPointDrawer2D cuda_point_drawer;
 	
 	
 	ImageLoader image_loader("/home/matiasvc/datasets/rgbd_dataset_freiburg3_long_office_household/");
@@ -133,6 +135,7 @@ int main() {
 		
 		uint32_t number_of_points = 0;
 		number_of_points_buffer.download(number_of_points);
+		
 		
 		std::cout << number_of_points << '\n';
 		
@@ -185,6 +188,13 @@ int main() {
 				.pitch_in_bytes = static_cast<uint32_t>(corner_response_image.get_pitch_in_bytes())
 		});
 		cuda_corner_image_drawer.draw(framebuffer_size, Toucan::Rectangle(Eigen::Vector2f(512.0f, 0.0f), Eigen::Vector2f(512.0f, 350.0f)));
+		
+		Toucan::CUDAPointDrawer2D::CUDAPoints2D cuda_points{
+				.array_dev_ptr = reinterpret_cast<float*>(corner_points_buffer.get_dev_ptr()),
+				.number_of_elements = number_of_points
+		};
+		cuda_point_drawer.set_data(cuda_points);
+		cuda_point_drawer.draw(framebuffer_size, Toucan::Rectangle(Eigen::Vector2f(512.0f, 0.0f), Eigen::Vector2f(512.0f, 350.0f)), Toucan::Rectangle(Eigen::Vector2f(0.0f, 0.0f), Eigen::Vector2f(640.0f, 480.0f)));
 		
 		ImGuiIO& io = ImGui::GetIO();
 		

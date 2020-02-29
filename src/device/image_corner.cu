@@ -77,7 +77,7 @@ void compute_corner_points_kernel(
 	const uint32_t image_index_u = blockIdx.x * blockDim.x + 32*threadIdx.x;
 	const uint32_t image_index_v = blockIdx.y * blockDim.y + 32*threadIdx.y;
 	
-	constexpr float threshold = 30.0f;
+	constexpr float threshold = 300.0f;
 	
 	float max_response = 0.0;
 	uint32_t max_response_u = 0;
@@ -85,7 +85,7 @@ void compute_corner_points_kernel(
 	
 	for (int v_offset=0; v_offset < 32; v_offset++) {
 		for (int u_offset=0; u_offset < 32; u_offset++) {
-			uint8_t* corner_response_byte_ptr = reinterpret_cast<uint8_t*>(corner_response_ptr);
+			auto* corner_response_byte_ptr = reinterpret_cast<uint8_t*>(corner_response_ptr);
 			corner_response_byte_ptr += corner_response_pitch*(image_index_v + v_offset) + sizeof(float)*(image_index_u + u_offset);
 			
 			float corner_response_value = *reinterpret_cast<float*>(corner_response_byte_ptr);
@@ -98,12 +98,12 @@ void compute_corner_points_kernel(
 		}
 	}
 	
-	uint32_t point_array_index = atomicInc(numberof_points_ptr, 9999999999);
+	uint32_t point_array_index = atomicInc(numberof_points_ptr, 9999999);
 	
 	if (point_array_index >= point_array_capacity) { return; }
 	
-	point_array_ptr[point_array_index].u = max_response_u;
-	point_array_ptr[point_array_index].v = max_response_v;
+	point_array_ptr[point_array_index].u = static_cast<float>(max_response_u);
+	point_array_ptr[point_array_index].v = static_cast<float>(max_response_v);
 }
 
 
