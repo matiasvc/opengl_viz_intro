@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include <glad/glad.h>
-#include <eigen3/Eigen/Core>
+#include <Eigen/Core>
 
 #include "util/Resource.h"
 

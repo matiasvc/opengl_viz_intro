@@ -7,18 +7,15 @@
 #include "util/Resource.h"
 #include "gl/Shader.h"
 
-#include "util/Transform.h"
-#include "gl/PointDrawer3D.h"
-#include "gl/LineDrawer3D.h"
-#include "gl/WorldGridDrawer.h"
-#include "gl/PrimitiveDrawer3D.h"
-#include "gl/OrbitCamera.h"
 #include "gl/ImageDrawer2D.h"
-#include <gl/PointDrawer2D.h>
 #include <gl/CUDAImageDrawer2D.h>
 
 #include "device/image_gradient.h"
 #include "device/image_grayscale.h"
+#include "device/image_corner.h"
+#include "device/PitchedCUDABuffer.h"
+#include "device/CUDABuffer.h"
+#include "device/CUDAArray.h"
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -60,7 +57,7 @@ int main() {
 	
 	// Create GLFW Window
 	Toucan::Resource<GLFWwindow*> window = Toucan::make_resource(
-		glfwCreateWindow(1400, 1200, "OpenGL Visualizer", nullptr, nullptr),
+		glfwCreateWindow(1400, 1600, "OpenGL Visualizer", nullptr, nullptr),
 		[](auto r){ glfwDestroyWindow(r); }
 	);
 	
@@ -86,18 +83,30 @@ int main() {
 	Toucan::CUDAImageDrawer2D cuda_grayscale_image_drawer;
 	Toucan::CUDAImageDrawer2D cuda_horizontal_gradient_image_drawer;
 	Toucan::CUDAImageDrawer2D cuda_vertical_gradient_image_drawer;
+	Toucan::CUDAImageDrawer2D cuda_corner_image_drawer;
 	
 	
 	ImageLoader image_loader("/home/matiasvc/datasets/rgbd_dataset_freiburg3_long_office_household/");
 	
 	PitchedCUDABuffer color_image;
 	color_image.resize(4*sizeof(uint8_t), 640, 480);
+	
 	PitchedCUDABuffer grayscale_image;
 	grayscale_image.resize(sizeof(uint8_t), 640, 480);
+	
 	PitchedCUDABuffer horizontal_gradient_image;
 	horizontal_gradient_image.resize(sizeof(int16_t), 640, 480);
+	
 	PitchedCUDABuffer vertical_gradient_image;
 	vertical_gradient_image.resize(sizeof(int16_t), 640, 480);
+	
+	PitchedCUDABuffer corner_response_image;
+	corner_response_image.resize(sizeof(float), 640, 480);
+	
+	CUDABuffer number_of_points_buffer;
+	number_of_points_buffer.resize(sizeof(uint32_t));
+	CUDAArray<CornerPoint> corner_points_buffer;
+	corner_points_buffer.resize(500);
 	
 	while (!glfwWindowShouldClose(window)) {
 		process_input(window);
@@ -107,8 +116,6 @@ int main() {
 		ImGui::NewFrame();
 		
 		glfwMakeContextCurrent(window);
-		
-		
 		
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -122,6 +129,12 @@ int main() {
 		
 		compute_grayscale(color_image, grayscale_image);
 		compute_gradient(grayscale_image, horizontal_gradient_image, vertical_gradient_image);
+		compute_corners(horizontal_gradient_image, vertical_gradient_image, corner_response_image, corner_points_buffer, number_of_points_buffer);
+		
+		uint32_t number_of_points = 0;
+		number_of_points_buffer.download(number_of_points);
+		
+		std::cout << number_of_points << '\n';
 		
 		cuda_color_image_drawer.set_image(Toucan::CUDAImageDrawer2D::CUDAImage{
 			.dev_buffer_ptr = color_image.get_dev_ptr(),
@@ -152,6 +165,26 @@ int main() {
 				.pitch_in_bytes = static_cast<uint32_t>(horizontal_gradient_image.get_pitch_in_bytes())
 		});
 		cuda_horizontal_gradient_image_drawer.draw(framebuffer_size, Toucan::Rectangle(Eigen::Vector2f(0.0f, 2*350.0f), Eigen::Vector2f(512.0f, 350.0f)));
+		
+		cuda_vertical_gradient_image_drawer.set_image(Toucan::CUDAImageDrawer2D::CUDAImage{
+				.dev_buffer_ptr = vertical_gradient_image.get_dev_ptr(),
+				.format = Toucan::CUDAImageDrawer2D::ImageFormat::R_S16,
+				.width_in_pixels = static_cast<uint32_t>(vertical_gradient_image.get_elements_per_row()),
+				.height_in_pixels = static_cast<uint32_t>(vertical_gradient_image.get_number_of_rows()),
+				.pixel_size_in_bytes = static_cast<uint32_t>(vertical_gradient_image.get_element_size_in_bytes()),
+				.pitch_in_bytes = static_cast<uint32_t>(vertical_gradient_image.get_pitch_in_bytes())
+		});
+		cuda_vertical_gradient_image_drawer.draw(framebuffer_size, Toucan::Rectangle(Eigen::Vector2f(0.0f, 3*350.0f), Eigen::Vector2f(512.0f, 350.0f)));
+		
+		cuda_corner_image_drawer.set_image(Toucan::CUDAImageDrawer2D::CUDAImage{
+				.dev_buffer_ptr = corner_response_image.get_dev_ptr(),
+				.format = Toucan::CUDAImageDrawer2D::ImageFormat::R_F32,
+				.width_in_pixels = static_cast<uint32_t>(corner_response_image.get_elements_per_row()),
+				.height_in_pixels = static_cast<uint32_t>(corner_response_image.get_number_of_rows()),
+				.pixel_size_in_bytes = static_cast<uint32_t>(corner_response_image.get_element_size_in_bytes()),
+				.pitch_in_bytes = static_cast<uint32_t>(corner_response_image.get_pitch_in_bytes())
+		});
+		cuda_corner_image_drawer.draw(framebuffer_size, Toucan::Rectangle(Eigen::Vector2f(512.0f, 0.0f), Eigen::Vector2f(512.0f, 350.0f)));
 		
 		ImGuiIO& io = ImGui::GetIO();
 		

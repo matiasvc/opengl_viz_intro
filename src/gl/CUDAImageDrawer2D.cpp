@@ -62,13 +62,13 @@ constexpr auto cuda_image_2d_gradient_fs = R"GLSL(
 
 in vec2 uv_coordinate;
 
-uniform sampler2D image;
+uniform isampler2D image;
 
 out vec4 fragment_color;
 
 void main() {
-	//fragment_color = vec4(texture(0.5 + *image, uv_coordinate).rrr, 1.0);
-	fragment_color = vec4(vec3(0.5) + 0.1*texture(image, uv_coordinate).rrr, 1.0);
+	vec3 tex_value = (texture(image, uv_coordinate)/3000.0).rrr;
+	fragment_color = vec4(0.5 + tex_value, 1.0);
 }
 
 )GLSL";
@@ -142,6 +142,7 @@ void Toucan::CUDAImageDrawer2D::set_image(const CUDAImage &cuda_image) {
 			cudaMemcpyDeviceToDevice, m_cuda_stream
 	) );
 	
+	
 	CUDA_CHECK( cudaGraphicsUnmapResources(1, &m_cuda_graphics_resource, m_cuda_stream) );
 	CUDA_CHECK( cudaStreamSynchronize(m_cuda_stream) );
 	
@@ -205,7 +206,7 @@ void Toucan::CUDAImageDrawer2D::update_texture(const Toucan::CUDAImageDrawer2D::
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glCheckError();
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); glCheckError();
 	
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glCheckError();
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glCheckError();
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); glCheckError();
 	
 	switch (cuda_image.format) {
@@ -217,8 +218,12 @@ void Toucan::CUDAImageDrawer2D::update_texture(const Toucan::CUDAImageDrawer2D::
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, cuda_image.width_in_pixels, cuda_image.height_in_pixels, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr); glCheckError();
 			m_shader = Shader(cuda_image_2d_vs, cuda_image_2d_grayscale_fs);
 		} break;
+		case ImageFormat::R_F32: {
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, cuda_image.width_in_pixels, cuda_image.height_in_pixels, 0, GL_RED, GL_FLOAT, nullptr); glCheckError();
+			m_shader = Shader(cuda_image_2d_vs, cuda_image_2d_grayscale_fs);
+		} break;
 		case ImageFormat::R_S16: {
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_R16_SNORM, cuda_image.width_in_pixels, cuda_image.height_in_pixels, 0, GL_RED_INTEGER, GL_SHORT, nullptr); glCheckError();
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_R16I, cuda_image.width_in_pixels, cuda_image.height_in_pixels, 0, GL_RED_INTEGER, GL_SHORT, nullptr); glCheckError();
 			m_shader = Shader(cuda_image_2d_vs, cuda_image_2d_gradient_fs);
 		} break;
 		default: {

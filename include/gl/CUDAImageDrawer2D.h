@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <optional>
-
 #include <Eigen/Core>
 
 #include <driver_types.h>
@@ -20,7 +19,7 @@ public:
 	};
 	explicit CUDAImageDrawer2D(const Settings& settings = {});
 	
-	enum class ImageFormat {RGBX_U8, R_U8, R_S16};
+	enum class ImageFormat {RGBX_U8, R_U8, R_S16, R_F32};
 	struct CUDAImage {
 		void* dev_buffer_ptr;
 		ImageFormat format;

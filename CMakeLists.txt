@@ -1,7 +1,8 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.0)
 project(opengl_viz_intro LANGUAGES C CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 17)
+
 
 # CUDA
 find_package(CUDA REQUIRED)
@@ -10,7 +11,8 @@ include_directories("${CUDA_INCLUDE_DIRS}")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr")
 
 # Eigen: For linear algebra
-find_package(Eigen3 REQUIRED NO_MODULE)
+#find_package(Eigen3 REQUIRED NO_MODULE)
+include_directories(libs/eigen)
 
 # glfw: For windows and displaying
 find_package(PkgConfig REQUIRED)
@@ -43,7 +45,7 @@ set_target_properties(cuda_code PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 
 set(CXX_LIBRARIES
-    Eigen3::Eigen
+    #Eigen3::Eigen
     stb
     glad
     imgui
